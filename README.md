@@ -1,62 +1,65 @@
-# Zahlenwerk – the number factory
+# Zahlenwerk – die Zahlenfabrik
 
 ![Zahlenwerk](zahlenwerk-wallpaper.webp)
 
-A cozy browser game about conveyor belts. Numbered tiles leave the factory, ride through stations, adders and gates, and have to reach the mailbox that wants them. You never do the maths yourself: every mailbox shows what the waiting tile would become on the way there. The challenge is timing, juggling several tiles at once, and using each level's machines well.
+Ein gemütliches Browserspiel über Förderbänder. Nummerierte Plättchen verlassen die Fabrik, fahren durch Stationen, Addierer und Schranken und müssen den Briefkasten erreichen, der sie haben will. Rechnen musst du nie selbst: Jeder Briefkasten zeigt, was aus dem wartenden Plättchen auf dem Weg dorthin würde. Die Herausforderung liegt im Timing, im Jonglieren mit mehreren Plättchen gleichzeitig und darin, die Maschinen jedes Levels geschickt zu nutzen.
 
-**Play:** open `index.html` in a browser. There's no build step and nothing to install.
+**Spielen:** `index.html` im Browser öffnen. Es gibt keinen Build-Schritt und nichts zu installieren.
 
-## Levels
+## Level
 
-| # | Level | What's new |
+| # | Level | Was ist neu |
 |---|---|---|
-| 1 | First Shift | Sending tiles and pointing a switch |
-| 2 | Recycling | Junk tiles, a 3-way switch, the recycler |
-| 3 | Distribution | Four mailboxes; one key sets every switch on the way |
-| 4 | The Adder | A machine that holds one tile and merges it with the next into their sum |
-| 5 | Holding Track | Gates you click to stop and release tiles |
-| 6 | Special Delivery | Golden tiles (double points), wildcards (fit any order), bombs (recycle them!) |
-| 7 | Half & Swap | ½ (odd numbers break), ⇄ digit swap (12 → 21) |
-| 8 | Grand Factory | Everything at once |
+| 1 | Erste Schicht | Plättchen losschicken und eine Weiche stellen |
+| 2 | Recycling | Ausschuss-Plättchen, eine 3-Wege-Weiche, der Recycler |
+| 3 | Verteilung | Vier Briefkästen; eine Taste stellt alle Weichen auf dem Weg |
+| 4 | Der Addierer | Eine Maschine, die ein Plättchen festhält und es mit dem nächsten zu ihrer Summe verschmilzt |
+| 5 | Abstellgleis | Schranken, die du anklickst, um Plättchen anzuhalten und freizugeben |
+| 6 | Sonderlieferung | Goldene Plättchen (doppelte Punkte), Joker (passen zu jedem Auftrag), Bomben (ab in den Recycler!) |
+| 7 | Halbieren & Tauschen | ½ (ungerade Zahlen zerbrechen), ⇄ Ziffern tauschen (12 → 21) |
+| 8 | Großfabrik | Alles auf einmal |
 
-Each level has a goal (fill N orders, and on adder levels a number of sums). Stars: ★ for finishing, ★ for losing no gear, ★ for beating the par time. Progress is saved in the browser.
+Jedes Level hat ein Ziel (N Aufträge erfüllen, in Addierer-Levels zusätzlich eine Anzahl Summen). Sterne: ★ fürs Schaffen, ★ für kein verlorenes Zahnrad, ★ fürs Schlagen der Par-Zeit. Der Fortschritt wird im Browser gespeichert.
 
-## Controls
+## Steuerung
 
-| Key | Action |
+| Taste | Aktion |
 |---|---|
-| <kbd>Space</kbd> / click the factory | Send the waiting tile |
-| <kbd>1</kbd>–<kbd>4</kbd> / click a mailbox | Set every switch on the route to that mailbox |
-| <kbd>0</kbd> / <kbd>X</kbd> / click the recycler | Route to the recycler |
-| <kbd>A</kbd> / click the adder | Route to the adder |
-| Click a switch | Flip just that switch (right-click flips backwards) |
-| Click a gate / <kbd>G</kbd> | Close or open one gate / all gates |
+| <kbd>Leertaste</kbd> / Klick auf die Fabrik | Wartendes Plättchen losschicken |
+| <kbd>1</kbd>–<kbd>4</kbd> / Klick auf einen Briefkasten | Alle Weichen auf dem Weg zu diesem Briefkasten stellen |
+| <kbd>0</kbd> / <kbd>X</kbd> / Klick auf den Recycler | Zum Recycler leiten |
+| <kbd>A</kbd> / Klick auf den Addierer | Zum Addierer leiten |
+| Klick auf eine Weiche | Nur diese Weiche umstellen (Rechtsklick stellt rückwärts um) |
+| Klick auf eine Schranke / <kbd>G</kbd> | Eine Schranke / alle Schranken schließen oder öffnen |
 | <kbd>P</kbd> / <kbd>Esc</kbd> | Pause |
+| <kbd>M</kbd> / Lautsprecher-Knopf oben rechts | Ton an/aus (wird gespeichert) |
 
-## Reading the board
+## Das Spielfeld lesen
 
-- **Chips under each mailbox** show what the waiting tile would arrive as: `→ 14 ✓` fills an order, `(taken)` means another tile is already on its way to that order, `+ ?` means it would wait in the adder.
-- **Badges on moving tiles** show what each one will do with the current switch settings: ✓ fill an order, ✕ wrong, ♻ recycler, + wait in the adder, 2 another tile gets there first, ! bomb in the wrong place. The prediction plays all tiles forward in arrival order, adder merges included.
-- A switch only matters at the moment a tile reaches it, so you can send the next tile right away and change the route once the previous tile has passed.
-- Up to 6 tiles fit in the factory queue. If it overflows, the factory jams and sends tiles out wherever the switches point.
+- **Chips unter jedem Briefkasten** zeigen, als was das wartende Plättchen ankommen würde: `→ 14 ✓` erfüllt einen Auftrag, `(vergeben)` heißt, dass schon ein anderes Plättchen zu diesem Auftrag unterwegs ist, `+ ?` heißt, es würde im Addierer warten.
+- **Abzeichen auf fahrenden Plättchen** zeigen, was jedes mit den aktuellen Weichenstellungen tun wird: ✓ Auftrag erfüllen, ✕ falsch, ♻ Recycler, + im Addierer warten, 2 ein anderes Plättchen kommt zuerst an, ! Bombe am falschen Ort. Die Vorhersage spielt alle Plättchen in Ankunftsreihenfolge vorwärts, Addierer-Summen inklusive.
+- Eine Weiche zählt nur in dem Moment, in dem ein Plättchen sie erreicht. Du kannst also das nächste Plättchen sofort losschicken und die Route ändern, sobald das vorherige vorbei ist.
+- In die Warteschlange der Fabrik passen bis zu 6 Plättchen. Läuft sie über, staut sich die Fabrik und schickt Plättchen dorthin, wohin die Weichen gerade zeigen.
 
-Fairness: every order is generated together with the tiles that can fill it, including both halves of an adder sum. When a tile is waiting in the adder, the factory plans a matching partner next. If no order can use the held tile, the adder's order changes to one that can.
+Fairness: Jeder Auftrag wird zusammen mit den Plättchen erzeugt, die ihn erfüllen können, einschließlich beider Hälften einer Addierer-Summe. Wartet ein Plättchen im Addierer, plant die Fabrik als Nächstes einen passenden Partner. Kann kein Auftrag das gehaltene Plättchen gebrauchen, wechselt der Auftrag des Addierers zu einem, der es kann.
 
-## Project layout
+## Projektaufbau
 
 ```
-index.html                 the whole game (canvas + vanilla JS, no dependencies)
-assets/*.png               machine and tile sprites rendered in Blender
-blender/render_sprites.py  script that models and renders the sprites
-zahlenwerk-wallpaper.webp  the original artwork the game is based on
+index.html                 das ganze Spiel (Canvas + Vanilla-JS, keine Abhängigkeiten)
+assets/*.png               Maschinen- und Plättchen-Sprites, in Blender gerendert
+blender/render_sprites.py  Skript, das die Sprites modelliert und rendert
+zahlenwerk-wallpaper.webp  das Originalbild, auf dem das Spiel basiert
 ```
 
-If a sprite can't be loaded, the game falls back to drawing that machine with canvas shapes.
+Zum Testen: `index.html#play=3` startet direkt Level 3, `#play=3&end=win` (oder `lose`) springt zum Ergebnisbildschirm.
 
-## Re-rendering the sprites
+Kann ein Sprite nicht geladen werden, zeichnet das Spiel diese Maschine stattdessen mit Canvas-Formen.
+
+## Sprites neu rendern
 
 ```sh
 /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render_sprites.py -- "$PWD/assets"
 ```
 
-The sprites are rendered with Cycles in an orthographic view tilted 37° (so the cylinders match the 0.8 ellipse ratio used in the game). A shadow-catcher plane provides soft drop shadows, and an ink outline is added afterwards around each silhouette. Scale: 1 Blender unit = 50 game px, rendered at 2×.
+Die Sprites werden mit Cycles in einer orthografischen, um 37° geneigten Ansicht gerendert (damit die Zylinder zum im Spiel verwendeten Ellipsenverhältnis 0,8 passen). Eine Shadow-Catcher-Ebene sorgt für weiche Schlagschatten, und um jede Silhouette wird nachträglich eine Tinten-Kontur gelegt. Maßstab: 1 Blender-Einheit = 50 Spiel-px, gerendert in 2×.
