@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zahlenwerk</title>
+<meta name="description" content="Zahlenwerk – a cozy number-factory puzzle. Route numbered tiles through + − × stations to fill orders.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#1d6b62; --ink2:#2f5f5a; --cream:#f6f3e8; }
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--cream);font-family:Fredoka,system-ui,sans-serif;color:var(--ink2)}
+  canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(246,243,232,.74);backdrop-filter:blur(4px);padding:16px;box-sizing:border-box;overflow:auto}
+  .overlay.hidden{display:none}
+  .card{background:#fffdf7;border:3px solid var(--ink);border-radius:22px;box-shadow:0 10px 0 rgba(29,107,98,.18);padding:26px 30px;max-width:580px;width:100%;text-align:center;box-sizing:border-box}
+  h1{margin:0 0 6px;font-size:clamp(42px,9vw,74px);font-weight:700;color:var(--ink);letter-spacing:.5px;
+     text-shadow:3px 3px 0 #fff,-3px -3px 0 #fff,3px -3px 0 #fff,-3px 3px 0 #fff,0 7px 0 rgba(29,107,98,.25)}
+  p{line-height:1.45;margin:8px 0}
+  ol{text-align:left;padding-left:22px;line-height:1.5;margin:14px 0}
+  li{margin:4px 0}
+  li b{color:var(--ink)}
+  kbd{font-family:inherit;background:#eef5f3;border:1px solid #9dbab4;border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:.9em}
+  button{font-family:inherit;font-size:22px;font-weight:600;color:#fff;background:var(--ink);border:0;border-radius:14px;padding:12px 34px;margin-top:12px;cursor:pointer;box-shadow:0 5px 0 #0f4740}
+  button:active{transform:translateY(3px);box-shadow:0 2px 0 #0f4740}
+  .big{font-size:40px;font-weight:700;color:var(--ink)}
+  .muted{opacity:.7;font-size:14px}
+  #rotate{display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#fffdf7;border:2px solid var(--ink);border-radius:12px;padding:6px 14px;font-size:14px;color:var(--ink);pointer-events:none;white-space:nowrap}
+  @media (orientation:portrait) and (max-width:700px){ #rotate{display:block} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="rotate">↻ Turn your phone sideways for a bigger factory</div>
+
+<div class="overlay" id="startScreen">
+  <div class="card">
+    <h1>Zahlenwerk</h1>
+    <p>The number factory needs a shift manager. Fill the orders!</p>
+    <ol>
+      <li>A numbered tile waits in the <b>factory</b>. It only leaves when you <b>click the factory</b> (or press <kbd>Space</kbd>).</li>
+      <li>Click a <b>station</b> to change its operation: <b>+</b>, <b>−</b> or <b>×</b>. Click a <b>switch</b> to change where tiles go.</li>
+      <li>The <b>dotted preview</b> shows where the waiting tile will end up and what number it becomes. Send it when the preview ends on <b>✓</b>.</li>
+      <li>Each <b>mailbox</b> wants one exact number before its timer runs out. Every tile can fill at least one order.</li>
+    </ol>
+    <p class="muted">An order that runs out of time costs a gear ⚙. Lose all 5 and the shift is over. Finishing a shift gives a gear back.<br>
+      Wrong numbers get sent back (−25 points, combo lost).<br>
+      Tiles already moving show ✓ / ✕ / ♻, so you can tell if changing a station would ruin their delivery. A “2” means another tile gets to that order first.<br>
+      <kbd>R</kbd> or right-click the factory swaps the tile (−10 points) · <kbd>P</kbd> pauses</p>
+    <button id="startBtn">Start shift</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overScreen">
+  <div class="card">
+    <h1>Feierabend</h1>
+    <p>The factory has ground to a halt.</p>
+    <div class="big" id="finalScore">0</div>
+    <p id="finalStats"></p>
+    <p id="bestLine" class="muted"></p>
+    <button id="againBtn">New shift</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="pauseScreen">
+  <div class="card"><h1>Pause</h1><button id="resumeBtn">Continue</button></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const W = 1200, H = 720;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let dpr = 1, scale = 1, offX = 0, offY = 0;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  scale = Math.min(innerWidth / W, innerHeight / H);
+  offX = (innerWidth - W * scale) / 2; offY = (innerHeight - H * scale) / 2;
+}
+addEventListener('resize', resize); resize();
+
+// ---------- helpers ----------
+const rand = n => Math.floor(Math.random() * n);
+const pick = a => a[rand(a.length)];
+const OPS = ['+', '−', '×'];
+const applyOp = (v, op, n) => op === '+' ? v + n : op === '−' ? v - n : v * n;
+const isScrap = v => v < 1 || v > 99;
+const OP_COLOR = { '+': '#1f8a7a', '−': '#c25a5a', '×': '#e0874a' };
+const GOOD = '#2a9d8f', BAD = '#d0564f';
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function circ(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
+function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
+
+// ---------- sprites (rendered in Blender, see blender/render_sprites.py) ----------
+// Each PNG is framed so the top-centre of the machine sits in the image centre.
+// Size = drawn size in game px (1 Blender unit = 50 px). Missing sprites fall back to vector drawing.
+const SPR = {};
+const SPR_SIZE = { station: 90, switch: 75, mailbox: 90, recycler: 90, factory: 206, tile: 45, tile_scrap: 45 };
+for (const k in SPR_SIZE) { const im = new Image(); im.onload = () => { SPR[k] = im; }; im.src = 'assets/' + k + '.png'; }
+function spr(k, x, y, s = 1) {
+  const im = SPR[k]; if (!im) return false;
+  const sz = SPR_SIZE[k] * s; ctx.drawImage(im, x - sz / 2, y - sz / 2, sz, sz); return true;
+}
+
+let ac = null;
+function beep(f, d = 0.08, type = 'sine', vol = 0.05, slide = 0) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d);
+  } catch (e) {}
+}
+
+// ---------- layout ----------
+const N = {
+  src: { x: 95,  y: 360, type: 'src', out: 'S1' },
+  S1:  { x: 255, y: 360, type: 'st',  out: 'J1' },
+  J1:  { x: 410, y: 360, type: 'sw',  outs: ['S2', 'BIN', 'S3'] },
+  BIN: { x: 600, y: 360, type: 'bin' },
+  S2:  { x: 570, y: 195, type: 'st',  out: 'J2' },
+  S3:  { x: 570, y: 530, type: 'st',  out: 'J3' },
+  J2:  { x: 730, y: 195, type: 'sw',  outs: ['S4', 'S5'] },
+  J3:  { x: 730, y: 530, type: 'sw',  outs: ['S6', 'S7'] },
+  S4:  { x: 895, y: 105, type: 'st',  out: 'M1' },
+  S5:  { x: 895, y: 285, type: 'st',  out: 'M2' },
+  S6:  { x: 895, y: 440, type: 'st',  out: 'M3' },
+  S7:  { x: 895, y: 625, type: 'st',  out: 'M4' },
+  M1:  { x: 1075, y: 105, type: 'mail' },
+  M2:  { x: 1075, y: 285, type: 'mail' },
+  M3:  { x: 1075, y: 440, type: 'mail' },
+  M4:  { x: 1075, y: 625, type: 'mail' },
+};
+for (const k in N) N[k].id = k;
+const MAILS = ['M1', 'M2', 'M3', 'M4'];
+const ROUTES = { M1: ['S1', 'S2', 'S4'], M2: ['S1', 'S2', 'S5'], M3: ['S1', 'S3', 'S6'], M4: ['S1', 'S3', 'S7'] };
+const FACTORY_BOX = { x: 95 - 68, y: 360 - 84, w: 136, h: 210 }; // building + send button
+const DOOR = { x: 95 + 37, y: 359 }; // the output chute on the roof
+
+const edges = {};
+const edgeKey = (a, b) => a + '>' + b;
+function makeEdge(a, b) {
+  const A = N[a], B = N[b];
+  const pts = A.y === B.y ? [{ x: A.x, y: A.y }, { x: B.x, y: B.y }]
+                          : [{ x: A.x, y: A.y }, { x: A.x, y: B.y }, { x: B.x, y: B.y }];
+  let len = 0; const segs = [];
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y); segs.push(l); len += l; }
+  edges[edgeKey(a, b)] = { a, b, pts, segs, len };
+}
+for (const k in N) { const n = N[k]; if (n.out) makeEdge(k, n.out); if (n.outs) n.outs.forEach(o => makeEdge(k, o)); }
+function pointOn(e, d) {
+  for (let i = 0; i < e.segs.length; i++) {
+    if (d <= e.segs[i] || i === e.segs.length - 1) {
+      const t = Math.min(1, d / e.segs[i]), p = e.pts[i], q = e.pts[i + 1];
+      return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+    }
+    d -= e.segs[i];
+  }
+}
+
+// ---------- logic: prediction & solvability ----------
+// Follow the network from `nodeId` with the CURRENT station/switch settings.
+function predict(v, scrap, nodeId) {
+  const path = [];
+  let id = nodeId;
+  for (let guard = 0; guard < 16; guard++) {
+    const n = N[id];
+    path.push(id);
+    if (n.type === 'st') { v = applyOp(v, n.op, n.val); if (isScrap(v)) scrap = true; id = n.out; }
+    else if (n.type === 'sw') { id = n.outs[n.state]; }
+    else return { path, end: id, v, scrap, ok: n.type === 'mail' && !scrap && v === n.target };
+  }
+  return { path, end: id, v, scrap, ok: false };
+}
+// Can start value v reach target along route with SOME choice of operations?
+function canReach(v, route, target, i = 0) {
+  if (isScrap(v)) return false;
+  if (i === route.length) return v === target;
+  const n = N[route[i]].val;
+  return OPS.some(o => canReach(applyOp(v, o, n), route, target, i + 1));
+}
+// Predict every tile in flight. If several tiles would fill the same order, only the one
+// arriving first really does – the others are marked as duplicates ('dup').
+function analyze() {
+  const info = S.tiles.map(t => {
+    const p = predict(t.v, t.scrap, t.edge.b);
+    let rem = t.edge.len - t.d;
+    for (let i = 0; i < p.path.length - 1; i++) rem += edges[edgeKey(p.path[i], p.path[i + 1])].len;
+    return { t, p, rem, kind: p.ok ? 'ok' : N[p.end].type === 'bin' ? 'bin' : 'bad' };
+  });
+  const claimed = new Set();
+  for (const i of info.filter(i => i.kind === 'ok').sort((a, b) => a.rem - b.rem)) {
+    if (claimed.has(i.p.end)) i.kind = 'dup'; else claimed.add(i.p.end);
+  }
+  return { info, claimed };
+}
+const startsFor = m => { const r = []; for (let s = 1; s <= 9; s++) if (canReach(s, ROUTES[m], N[m].target)) r.push(s); return r; };
+const solvableAny = v => MAILS.some(m => canReach(v, ROUTES[m], N[m].target));
+
+// ---------- state ----------
+let S;
+const BEST_KEY = 'zahlenwerk-best';
+function loadBest() { try { return +localStorage.getItem(BEST_KEY) || 0; } catch (e) { return 0; } }
+function saveBest(v) { try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) {} }
+
+const PER_SHIFT = 5;
+const shift = () => 1 + Math.floor(S.delivered / PER_SHIFT);
+const speed = () => Math.min(115, 66 + (shift() - 1) * 7);
+const patience = () => Math.max(35, 100 - (shift() - 1) * 10);
+const autoRelease = () => shift() >= 3 ? Math.max(5, 15 - (shift() - 3) * 2) : 0; // 0 = off
+const RELOAD = 0.9;
+
+function newGame() {
+  S = {
+    running: true, paused: false, time: 0, score: 0, combo: 0, bestCombo: 0, delivered: 0, released: 0,
+    lives: 5, tiles: [], fx: [], texts: [], beltOff: 0, shake: 0,
+    held: null, returned: 0, reload: 0.4, holdT: 0, banner: null, lastShift: 1,
+  };
+  N.S1.val = 1 + rand(3); N.S1.op = '+';
+  for (const s of ['S2', 'S3', 'S4', 'S5', 'S6', 'S7']) { N[s].val = 2 + rand(3); N[s].op = pick(OPS); }
+  for (const k in N) N[k].pop = 0;
+  N.J1.state = 0; N.J2.state = 0; N.J3.state = 0;
+  for (const m of MAILS) { N[m].target = null; N[m].flash = 0; N[m].bad = 0; }
+  MAILS.forEach((m, i) => { newOrder(m, true); N[m].max = N[m].left = patience() + i * 20; });
+  S.banner = { text: 'Shift 1', sub: 'Take your time – set up the preview, then send.', t: 0 };
+}
+
+function newOrder(m, initial = false) {
+  const taken = MAILS.filter(o => o !== m).map(o => N[o].target);
+  let t = 12;
+  for (let i = 0; i < 400; i++) {
+    let v = 1 + rand(9), ok = true;
+    for (const s of ROUTES[m]) { v = applyOp(v, pick(OPS), N[s].val); if (isScrap(v)) { ok = false; break; } }
+    if (ok && v >= 2 && v <= 40 && !taken.includes(v)) { t = v; break; }
+  }
+  N[m].target = t; N[m].max = patience() + rand(10); N[m].left = N[m].max;
+  // If the waiting tile can no longer fill any order, quietly swap it.
+  if (!initial && S.held && !solvableAny(S.held.v)) { S.held = makeTile(); S.held.pop = 1; }
+}
+
+// Pick a tile value that can fill an order nobody is already on the way to fill.
+function makeTile() {
+  const { claimed } = analyze();
+  let cands = MAILS.filter(m => !claimed.has(m));
+  if (!cands.length) cands = MAILS.slice();
+  cands.sort((a, b) => N[a].left - N[b].left);
+  const m = Math.random() < 0.55 ? cands[0] : pick(cands);
+  const starts = startsFor(m);
+  return { v: starts.length ? pick(starts) : 1 + rand(9), pop: 0 };
+}
+
+// ---------- effects ----------
+function burst(x, y, color, n = 12) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 40 + Math.random() * 120;
+    S.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40, life: 0.6 + Math.random() * 0.4, t: 0, color, g: pick(['+', '−', '×', '•']) });
+  }
+}
+function floatText(x, y, txt, color) { S.texts.push({ x, y, txt, color, t: 0 }); }
+
+function loseLife(x, y, reason) {
+  if (!S.running) return;
+  S.lives--; S.combo = 0; S.shake = 0.35;
+  floatText(x, y - 30, reason, BAD);
+  beep(160, 0.3, 'sawtooth', 0.05, 0.5);
+  if (S.lives <= 0) gameOver();
+}
+
+// ---------- actions ----------
+function release() {
+  if (!S.held || !S.running || S.paused) return;
+  S.tiles.push({ v: S.held.v, edge: edges['src>S1'], d: DOOR.x - N.src.x, pop: 0.6, scrap: false });
+  S.held = null; S.reload = RELOAD; S.released++;
+  beep(330, 0.07, 'triangle', 0.04, 1.5);
+}
+function swapTile() {
+  if (!S.held || !S.running || S.paused) return;
+  let t = makeTile();
+  for (let i = 0; i < 6 && t.v === S.held.v; i++) t = makeTile();
+  S.held = t; S.held.pop = 1;
+  S.score = Math.max(0, S.score - 10);
+  floatText(DOOR.x, DOOR.y - 40, '−10 swap', '#8a7f69');
+  beep(260, 0.08, 'square', 0.025, 0.8);
+}
+
+// ---------- update ----------
+function arrive(tile, nodeId) {
+  const n = N[nodeId];
+  if (n.type === 'st') {
+    const before = tile.v;
+    tile.v = applyOp(tile.v, n.op, n.val);
+    const wasScrap = tile.scrap;
+    if (isScrap(tile.v)) tile.scrap = true;
+    n.pop = 1; tile.pop = 1;
+    beep(tile.scrap ? 200 : 440 + Math.min(tile.v, 60) * 8, 0.06, 'triangle', 0.03);
+    if (tile.scrap && !wasScrap) floatText(n.x, n.y - 44, `${before}${n.op}${n.val} = scrap`, BAD);
+    tile.edge = edges[edgeKey(nodeId, n.out)]; tile.d = 0;
+  } else if (n.type === 'sw') {
+    tile.edge = edges[edgeKey(nodeId, n.outs[n.state])]; tile.d = 0;
+  } else if (n.type === 'bin') {
+    tile.dead = true; n.pop = 1; burst(n.x, n.y, '#e0874a', 6); beep(300, 0.08, 'square', 0.02, 0.6);
+  } else if (n.type === 'mail') {
+    tile.dead = true;
+    if (!tile.scrap && tile.v === n.target) {
+      S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo); S.delivered++;
+      const pts = 100 + (S.combo - 1) * 25 + Math.round(50 * n.left / n.max);
+      S.score += pts; n.flash = 1;
+      floatText(n.x, n.y - 46, '+' + pts + (S.combo > 1 ? '  combo x' + S.combo : ''), '#1f8a7a');
+      burst(n.x, n.y, GOOD, 18);
+      beep(660, 0.09, 'triangle', 0.05); setTimeout(() => beep(990, 0.12, 'triangle', 0.05), 80);
+      newOrder(n.id);
+      checkShift();
+    } else {
+      // Wrong number: sent back. Costs points and the combo, but no gear.
+      n.bad = 1; S.combo = 0; S.score = Math.max(0, S.score - 25); S.returned++;
+      floatText(n.x, n.y - 46, (tile.scrap ? 'scrap' : `${tile.v} ≠ ${n.target}`) + '  returned −25', BAD);
+      beep(180, 0.22, 'sawtooth', 0.04, 0.6);
+    }
+  }
+}
+
+function checkShift() {
+  const s = shift();
+  if (s <= S.lastShift) return;
+  S.lastShift = s;
+  let sub = 'Belts run a little faster, orders are less patient.';
+  if (s === 3) sub = 'From now on the factory pushes tiles out by itself after a while!';
+  else if (s > 3) sub = 'Faster belts, less patient orders, quicker factory.';
+  if (S.lives < 5) { S.lives++; sub += '  +1 gear ⚙'; }
+  S.banner = { text: 'Shift ' + s, sub, t: 0 };
+  beep(523, 0.12, 'triangle', 0.05); setTimeout(() => beep(659, 0.12, 'triangle', 0.05), 110); setTimeout(() => beep(784, 0.18, 'triangle', 0.05), 220);
+}
+
+function update(dt) {
+  S.time += dt;
+  const sp = speed();
+  S.beltOff = (S.beltOff + sp * dt) % 1000;
+  S.shake = Math.max(0, S.shake - dt);
+  if (S.banner) { S.banner.t += dt; if (S.banner.t > 4) S.banner = null; }
+
+  // factory
+  if (!S.held) {
+    S.reload -= dt;
+    if (S.reload <= 0) { S.held = makeTile(); S.held.pop = 1; S.holdT = autoRelease(); }
+  } else {
+    S.held.pop = Math.max(0, S.held.pop - dt * 3);
+    if (autoRelease()) {
+      if (!S.holdT) S.holdT = autoRelease();
+      S.holdT -= dt;
+      if (S.holdT <= 0) { floatText(DOOR.x, DOOR.y - 40, 'auto-sent!', '#e0874a'); release(); }
+    }
+  }
+
+  for (const t of S.tiles) {
+    t.d += sp * dt; t.pop = Math.max(0, t.pop - dt * 3);
+    for (let g = 0; !t.dead && t.d >= t.edge.len && g < 4; g++) {
+      const over = t.d - t.edge.len;
+      arrive(t, t.edge.b);
+      if (!t.dead) t.d = over;
+    }
+  }
+  S.tiles = S.tiles.filter(t => !t.dead);
+
+  for (const m of MAILS) {
+    const n = N[m];
+    n.flash = Math.max(0, n.flash - dt * 2); n.bad = Math.max(0, n.bad - dt * 2);
+    n.left -= dt;
+    if (n.left <= 0 && S.running) { n.bad = 1; loseLife(n.x, n.y, 'order expired'); newOrder(m); }
+  }
+  for (const k in N) if (N[k].pop) N[k].pop = Math.max(0, N[k].pop - dt * 4);
+  tickFx(dt);
+}
+function tickFx(dt) {
+  for (const f of S.fx) { f.t += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 160 * dt; }
+  S.fx = S.fx.filter(f => f.t < f.life);
+  for (const tx of S.texts) tx.t += dt;
+  S.texts = S.texts.filter(tx => tx.t < 1.6);
+}
+
+// ---------- drawing ----------
+function drawBackground() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = ctx.createLinearGradient(0, 0, innerWidth, 0);
+  g.addColorStop(0, '#f7f3e6'); g.addColorStop(0.45, '#f3f2e6'); g.addColorStop(1, '#e3efed');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, innerWidth, innerHeight);
+  const step = 24 * scale;
+  ctx.lineWidth = 1;
+  for (const [mult, col] of [[1, 'rgba(120,150,140,.12)'], [5, 'rgba(120,150,140,.2)']]) {
+    const s = step * mult;
+    ctx.strokeStyle = col; ctx.beginPath();
+    for (let x = offX % s; x < innerWidth; x += s) { ctx.moveTo(x, 0); ctx.lineTo(x, innerHeight); }
+    for (let y = offY % s; y < innerHeight; y += s) { ctx.moveTo(0, y); ctx.lineTo(innerWidth, y); }
+    ctx.stroke();
+  }
+}
+
+function isActiveEdge(e) { const A = N[e.a]; return A.type !== 'sw' || A.outs[A.state] === e.b; }
+
+function drawBelts() {
+  ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+  ctx.save(); ctx.translate(0, 5);
+  for (const k in edges) { ctx.strokeStyle = 'rgba(40,70,65,.12)'; ctx.lineWidth = 36; poly(edges[k].pts); ctx.stroke(); }
+  ctx.restore();
+  for (const k in edges) {
+    const e = edges[k], act = isActiveEdge(e);
+    ctx.globalAlpha = act ? 1 : 0.5;
+    ctx.strokeStyle = '#557c77'; ctx.lineWidth = 34; poly(e.pts); ctx.stroke();
+    ctx.strokeStyle = act ? '#cddcd8' : '#bccbc7'; ctx.lineWidth = 28; poly(e.pts); ctx.stroke();
+    ctx.setLineDash([3, 9]); ctx.lineDashOffset = -S.beltOff;
+    ctx.strokeStyle = 'rgba(70,110,104,.35)'; ctx.lineWidth = 24; poly(e.pts); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawTile(x, y, v, scrap, pop, s = 1, ghost = false) {
+  const sz = (26 + pop * 8) * s;
+  if (!ghost && spr(scrap ? 'tile_scrap' : 'tile', x, y, sz / 26)) {
+    ctx.fillStyle = scrap ? '#b65050' : '#24524d';
+    ctx.font = `600 ${Math.round((v >= 10 || scrap ? 14 : 16) * sz / 26)}px Fredoka, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(scrap ? '✕' : v, x, y + 0.5);
+    return;
+  }
+  if (!ghost) { ctx.fillStyle = 'rgba(30,60,55,.18)'; rr(x - sz / 2 + 1, y - sz / 2 + 3, sz, sz, 6 * s); ctx.fill(); }
+  ctx.fillStyle = scrap ? '#f3d6d0' : ghost ? 'rgba(255,253,247,.92)' : '#eef6f3';
+  rr(x - sz / 2, y - sz / 2, sz, sz, 6 * s); ctx.fill();
+  ctx.lineWidth = 2.5 * s; ctx.strokeStyle = scrap ? '#b65050' : '#2f6f68';
+  if (ghost) ctx.setLineDash([4, 3]);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = scrap ? '#b65050' : '#24524d';
+  ctx.font = `600 ${Math.round((v >= 10 || scrap ? 14 : 16) * s)}px Fredoka, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(scrap ? '✕' : v, x, y + 1);
+}
+
+function badge(x, y, kind) {
+  const col = kind === 'ok' ? GOOD : kind === 'bin' ? '#e0874a' : kind === 'dup' ? '#b08a3e' : BAD;
+  ctx.fillStyle = '#fff'; circ(x, y, 8); ctx.fill();
+  ctx.fillStyle = col; circ(x, y, 6.5); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = '700 10px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(kind === 'ok' ? '✓' : kind === 'bin' ? '♻' : kind === 'dup' ? '2' : '✕', x, y + 0.5);
+}
+
+let flight = { info: [], claimed: new Set() };
+function drawTiles() {
+  for (const i of flight.info) {
+    const p = pointOn(i.t.edge, i.t.d);
+    drawTile(p.x, p.y, i.t.v, i.t.scrap, i.t.pop);
+    badge(p.x + 13, p.y - 13, i.kind);
+  }
+}
+
+// Dotted route preview for the tile waiting in the factory.
+let preview = null;
+function drawPreview() {
+  preview = null;
+  if (!S.held || !S.running) return;
+  const pr = predict(S.held.v, false, 'S1');
+  pr.taken = pr.ok && flight.claimed.has(pr.end);
+  if (pr.taken) pr.ok = false;
+  preview = pr;
+  const ids = ['src', ...pr.path];
+  const col = pr.ok ? GOOD : N[pr.end].type === 'bin' ? '#e0874a' : pr.taken ? '#b08a3e' : BAD;
+  ctx.save();
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.setLineDash([2, 10]); ctx.lineDashOffset = -S.time * 30;
+  ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.globalAlpha = 0.85;
+  for (let i = 0; i < ids.length - 1; i++) { poly(edges[edgeKey(ids[i], ids[i + 1])].pts); ctx.stroke(); }
+  ctx.restore();
+  // value chips under each station on the route
+  let v = S.held.v, scrap = false;
+  for (const id of pr.path) {
+    const n = N[id];
+    if (n.type !== 'st') continue;
+    v = applyOp(v, n.op, n.val); if (isScrap(v)) scrap = true;
+    const cx = n.x, cy = n.y + 44;
+    ctx.fillStyle = 'rgba(255,253,247,.9)'; rr(cx - 29, cy - 12, 58, 24, 8); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = scrap ? BAD : '#24524d'; ctx.font = '600 14px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(scrap ? '→ scrap' : '→ ' + v, cx, cy + 1);
+  }
+}
+
+function cylinder(x, y, r, top, side, stroke) {
+  ctx.fillStyle = 'rgba(30,60,55,.15)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 16, r + 4, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = side; ctx.strokeStyle = stroke; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(x, y + 9, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillRect(x - r, y, r * 2, 9);
+  ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x - r, y + 9); ctx.moveTo(x + r, y); ctx.lineTo(x + r, y + 9); ctx.stroke();
+  ctx.fillStyle = top; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+}
+
+let hover = null;
+function hoverGlow(x, y, r) { ctx.fillStyle = 'rgba(42,157,143,.18)'; circ(x, y + 4, r); ctx.fill(); }
+
+function drawStation(n) {
+  const r = 30 + n.pop * 4;
+  if (hover === n) hoverGlow(n.x, n.y, r + 14);
+  if (!spr('station', n.x, n.y, r / 30)) {
+    cylinder(n.x, n.y, r, '#eef5f3', '#a9c3be', '#3a6b65');
+    ctx.fillStyle = '#d6e6e2'; ctx.beginPath(); ctx.ellipse(n.x, n.y, r * 0.66, r * 0.52, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  const fc = OP_COLOR[n.op];
+  ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(n.x + 16, n.y - 12); ctx.lineTo(n.x + 16, n.y - 50); ctx.stroke();
+  const wave = Math.sin(S.time * 4 + n.x) * 2;
+  ctx.fillStyle = fc; ctx.beginPath(); ctx.moveTo(n.x + 16, n.y - 50); ctx.lineTo(n.x + 36, n.y - 46 + wave); ctx.lineTo(n.x + 16, n.y - 38); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = fc; ctx.font = '700 19px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(n.op + n.val, n.x, n.y + 1);
+  // the three options, current one highlighted
+  ctx.font = '700 13px Fredoka, sans-serif';
+  OPS.forEach((o, i) => {
+    const ox = n.x - 20 + i * 14, oy = n.y - 40;
+    ctx.globalAlpha = o === n.op ? 1 : 0.28;
+    ctx.fillStyle = OP_COLOR[o]; ctx.fillText(o, ox, oy);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawSwitch(n) {
+  const r = 24;
+  if (hover === n) hoverGlow(n.x, n.y, r + 14);
+  if (!spr('switch', n.x, n.y, 1 + (n.pop || 0) * 0.12)) cylinder(n.x, n.y, r, '#f7f1e2', '#cdbf9f', '#6b6250');
+  const e = edges[edgeKey(n.id, n.outs[n.state])];
+  const dx = e.pts[1].x - e.pts[0].x, dy = e.pts[1].y - e.pts[0].y;
+  ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = '#1d6b62';
+  ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(1, -10); ctx.lineTo(1, -4); ctx.lineTo(-12, -4); ctx.lineTo(-12, 4); ctx.lineTo(1, 4); ctx.lineTo(1, 10); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawBin(n) {
+  if (!spr('recycler', n.x, n.y, 1 + (n.pop || 0) * 0.1)) {
+    cylinder(n.x, n.y, 32, '#f6f1e6', '#c9c0ad', '#6b6250');
+    ctx.strokeStyle = '#e0874a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    const s = 13;
+    ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(Math.sin(S.time * 0.8) * 0.15);
+    ctx.beginPath(); ctx.moveTo(-s, -s * 0.8); ctx.lineTo(s, s * 0.8); ctx.moveTo(s, -s * 0.8); ctx.lineTo(-s, s * 0.8); ctx.stroke();
+    ctx.fillStyle = '#3a6b65'; circ(0, 0, 4); ctx.fill();
+    ctx.restore();
+    ctx.lineCap = 'butt';
+  }
+  ctx.fillStyle = '#8a7f69'; ctx.font = '600 12px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('recycle', n.x, n.y + 46);
+}
+
+function drawMail(n) {
+  const sh = n.bad ? Math.sin(S.time * 60) * 4 * n.bad : 0;
+  const x = n.x + sh, y = n.y;
+  const target = preview && preview.end === n.id;
+  if (target) { ctx.fillStyle = preview.ok ? 'rgba(42,157,143,.22)' : 'rgba(208,86,79,.16)'; circ(x, y + 4, 46); ctx.fill(); }
+  if (spr('mailbox', x, y, 1 + n.flash * 0.08)) {
+    if (n.flash) { ctx.fillStyle = `rgba(191,232,223,${n.flash * 0.8})`; ctx.beginPath(); ctx.ellipse(x, y, 30, 24, 0, 0, Math.PI * 2); ctx.fill(); }
+  } else {
+    cylinder(x, y, 32, '#eef5f3', '#a9c3be', '#3a6b65');
+    ctx.fillStyle = n.flash ? '#bfe8df' : '#2a8c80'; rr(x - 17, y - 11, 34, 22, 3); ctx.fill();
+    ctx.strokeStyle = '#eef5f3'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 17, y - 11); ctx.lineTo(x, y + 2); ctx.lineTo(x + 17, y - 11); ctx.stroke();
+  }
+  // order bubble with patience ring
+  const bx = x + 72, by = y, frac = Math.max(0, n.left / n.max);
+  ctx.fillStyle = 'rgba(30,60,55,.15)'; circ(bx + 2, by + 4, 30); ctx.fill();
+  ctx.fillStyle = n.bad ? '#f7dcd6' : n.flash ? '#d9f3ec' : '#fffdf7'; circ(bx, by, 30); ctx.fill();
+  ctx.strokeStyle = '#d6e2df'; ctx.lineWidth = 5; circ(bx, by, 30); ctx.stroke();
+  ctx.strokeStyle = frac > 0.5 ? GOOD : frac > 0.25 ? '#e0a23e' : BAD;
+  ctx.beginPath(); ctx.arc(bx, by, 30, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
+  ctx.fillStyle = '#fffdf7'; ctx.beginPath(); ctx.moveTo(bx - 30, by - 6); ctx.lineTo(bx - 40, by); ctx.lineTo(bx - 30, by + 6); ctx.fill();
+  const pulse = frac < 0.25 ? 1 + Math.sin(S.time * 12) * 0.06 : 1;
+  ctx.fillStyle = '#1d6b62'; ctx.font = `700 ${Math.round(24 * pulse)}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(n.target, bx, by + 1);
+  ctx.fillStyle = '#5b7f79'; ctx.font = '600 11px Fredoka, sans-serif';
+  ctx.fillText(Math.ceil(Math.max(0, n.left)) + 's', bx, by + 44);
+  // what the preview tile would arrive as
+  if (target) {
+    const ox = x, oy = y - 50;
+    const bw = preview.taken ? 92 : 68;
+    ctx.fillStyle = preview.ok ? GOOD : preview.taken ? '#b08a3e' : BAD; rr(ox - bw / 2, oy - 13, bw, 26, 13); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '700 15px Fredoka, sans-serif';
+    ctx.fillText(preview.scrap ? 'scrap ✕' : preview.ok ? preview.v + ' ✓' : preview.taken ? 'already taken' : preview.v + ' ✕', ox, oy + 1);
+  }
+}
+
+function drawFactory(n) {
+  const x = n.x, y = n.y, hv = hover === 'factory' && S.held;
+  if (hv) { ctx.fillStyle = 'rgba(42,157,143,.16)'; rr(FACTORY_BOX.x - 6, FACTORY_BOX.y - 6, FACTORY_BOX.w + 12, 166, 18); ctx.fill(); }
+  if (!spr('factory', x, y)) {
+    ctx.fillStyle = 'rgba(30,60,55,.15)'; rr(x - 52, y - 40, 110, 96, 12); ctx.fill();
+    ctx.fillStyle = '#e9efed'; ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2.5;
+    rr(x - 56, y - 46, 104, 90, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f7f9f8'; rr(x - 32, y - 70, 56, 36, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2f4f4b'; rr(DOOR.x - 16, DOOR.y - 16, 32, 32, 5); ctx.fill();
+  }
+  // waiting tile on the output chute
+  if (S.held && S.running) {
+    const bob = Math.sin(S.time * 4) * 1.5;
+    const ar = autoRelease();
+    if (ar && S.holdT > 0) {
+      ctx.strokeStyle = S.holdT < 3 ? BAD : '#e0874a'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.arc(DOOR.x, DOOR.y + bob, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (S.holdT / ar)); ctx.stroke();
+    }
+    drawTile(DOOR.x, DOOR.y - 2 + bob, S.held.v, false, S.held.pop, 1.15);
+  }
+  // send button – doubles as the reload indicator
+  if (!S.running) return;
+  const by = y + 96, ready = !!S.held;
+  const p = ready ? 1 : 1 - Math.max(0, S.reload) / RELOAD;
+  ctx.fillStyle = 'rgba(30,60,55,.18)'; rr(x - 44, by - 12, 88, 28, 10); ctx.fill();
+  ctx.fillStyle = '#cfdcd9'; rr(x - 44, by - 14, 88, 28, 10); ctx.fill();
+  ctx.save(); rr(x - 44, by - 14, 88, 28, 10); ctx.clip();
+  ctx.fillStyle = ready ? (hv ? '#145a52' : '#1d6b62') : '#6fa59d'; ctx.fillRect(x - 44, by - 14, 88 * p, 28);
+  ctx.restore();
+  ctx.fillStyle = '#fff'; ctx.font = '700 15px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ready ? 'SEND ▶' : 'loading…', x, by + 1);
+  ctx.fillStyle = '#5b7f79'; ctx.font = '500 11px Fredoka, sans-serif';
+  ctx.fillText('space · R swap', x, by + 26);
+  if (S.released === 0 && ready) {
+    const a = 0.6 + Math.sin(S.time * 5) * 0.4;
+    ctx.globalAlpha = a; ctx.fillStyle = '#1d6b62'; ctx.font = '700 15px Fredoka, sans-serif';
+    ctx.fillText('click to send ▲', x, by + 48); ctx.globalAlpha = 1;
+  }
+}
+
+function drawHUD() {
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '700 46px Fredoka, sans-serif';
+  ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 10; ctx.strokeText('Zahlenwerk', 26, 64);
+  ctx.fillStyle = 'rgba(29,107,98,.25)'; ctx.fillText('Zahlenwerk', 26, 69);
+  ctx.fillStyle = '#1d6b62'; ctx.fillText('Zahlenwerk', 26, 64);
+
+  const box = (x, w, label) => {
+    ctx.fillStyle = 'rgba(255,253,247,.9)'; rr(x, 84, w, 46, 10); ctx.fill();
+    ctx.strokeStyle = '#9dbab4'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#5b7f79'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, x + 10, 99);
+  };
+  const val = (x, v) => { ctx.fillStyle = '#1d6b62'; ctx.font = '700 20px Fredoka, sans-serif'; ctx.fillText(v, x + 10, 122); };
+  box(26, 104, 'SCORE'); val(26, S.score);
+  box(138, 92, 'SHIFT');
+  // shift progress pips
+  const inShift = S.delivered % PER_SHIFT;
+  for (let i = 0; i < PER_SHIFT; i++) { ctx.fillStyle = i < inShift ? GOOD : '#d6e2df'; circ(166 + i * 11, 117, 4); ctx.fill(); }
+  ctx.fillStyle = '#1d6b62'; ctx.font = '700 20px Fredoka, sans-serif'; ctx.fillText(shift(), 148, 122);
+  box(238, 70, 'COMBO'); val(238, S.combo > 1 ? 'x' + S.combo : '–');
+  box(316, 130, 'GEARS');
+  for (let i = 0; i < 5; i++) drawGear(334 + i * 22, 116, 8, i < S.lives ? GOOD : '#d6dedb', i < S.lives ? S.time : 0);
+}
+function drawGear(x, y, r, c, a) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = c;
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) { const ang = i / 16 * Math.PI * 2, rad = i % 2 ? r : r + 3; ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fffdf7'; circ(0, 0, r * 0.4); ctx.fill();
+  ctx.restore();
+}
+
+function drawTip() {
+  if (!S.running || shift() > 1) return;
+  let tip;
+  if (S.released === 0) tip = 'Change stations (+ − ×) and switches until the dotted preview ends on ✓ – then click SEND.';
+  else if (S.delivered === 0) tip = 'Tiles on the belt show ✓ / ✕ / ♻. Changing a station also changes tiles already on their way!';
+  else tip = 'You can keep several tiles moving at once – watch their badges. Unwanted tiles go to the recycler.';
+  ctx.font = '600 15px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(tip).width + 28;
+  ctx.fillStyle = 'rgba(255,253,247,.92)'; rr(470 - w / 2, 688, w, 28, 14); ctx.fill();
+  ctx.strokeStyle = '#9dbab4'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#2f5f5a'; ctx.fillText(tip, 470, 702);
+}
+
+function drawBanner() {
+  const b = S.banner; if (!b || !S.running) return;
+  const a = Math.min(1, b.t * 4, (4 - b.t) * 2);
+  ctx.globalAlpha = Math.max(0, a);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const y = 270 - (1 - Math.min(1, b.t * 4)) * 20;
+  ctx.font = '600 15px Fredoka, sans-serif';
+  const w = Math.max(260, ctx.measureText(b.sub).width + 40);
+  ctx.fillStyle = 'rgba(255,253,247,.95)'; rr(600 - w / 2 - 70, y - 40, w, 76, 16); ctx.fill();
+  ctx.strokeStyle = '#1d6b62'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#1d6b62'; ctx.font = '700 28px Fredoka, sans-serif'; ctx.fillText(b.text, 530, y - 12);
+  ctx.fillStyle = '#2f5f5a'; ctx.font = '600 15px Fredoka, sans-serif'; ctx.fillText(b.sub, 530, y + 18);
+  ctx.globalAlpha = 1;
+}
+
+function drawFx() {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of S.fx) {
+    ctx.globalAlpha = 1 - f.t / f.life; ctx.fillStyle = f.color; ctx.font = '700 14px Fredoka, sans-serif';
+    ctx.fillText(f.g, f.x, f.y);
+  }
+  for (const t of S.texts) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, 2 * (1 - t.t / 1.6)));
+    ctx.font = '700 18px Fredoka, sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.lineJoin = 'round';
+    ctx.strokeText(t.txt, t.x, t.y - t.t * 30); ctx.fillStyle = t.color; ctx.fillText(t.txt, t.x, t.y - t.t * 30);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  drawBackground();
+  const sx = S.shake ? (Math.random() - 0.5) * 8 * S.shake : 0, sy = S.shake ? (Math.random() - 0.5) * 8 * S.shake : 0;
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (offX + sx), dpr * (offY + sy));
+  flight = analyze();
+  drawBelts();
+  drawPreview();
+  drawTiles();
+  for (const k in N) {
+    const n = N[k];
+    if (n.type === 'st') drawStation(n);
+    else if (n.type === 'sw') drawSwitch(n);
+    else if (n.type === 'bin') drawBin(n);
+    else if (n.type === 'mail') drawMail(n);
+    else if (n.type === 'src') drawFactory(n);
+  }
+  drawHUD();
+  drawTip();
+  drawBanner();
+  drawFx();
+}
+
+// ---------- input ----------
+function toGame(e) { return { x: (e.clientX - offX) / scale, y: (e.clientY - offY) / scale }; }
+function hit(p) {
+  const f = FACTORY_BOX;
+  if (p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h + 40) return 'factory';
+  for (const k in N) { const n = N[k]; if ((n.type === 'st' || n.type === 'sw') && Math.hypot(p.x - n.x, p.y - n.y) < 38) return n; }
+  return null;
+}
+cv.addEventListener('pointermove', e => {
+  if (!S || !S.running) { hover = null; cv.style.cursor = 'default'; return; }
+  hover = hit(toGame(e)); cv.style.cursor = hover ? 'pointer' : 'default';
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => {
+  if (!S || !S.running || S.paused) return;
+  const n = hit(toGame(e)); if (!n) return;
+  const back = e.button === 2;
+  if (n === 'factory') { back ? swapTile() : release(); return; }
+  const dir = back ? -1 : 1;
+  if (n.type === 'st') { n.op = OPS[(OPS.indexOf(n.op) + dir + 3) % 3]; n.pop = 1; beep(520, 0.05, 'square', 0.025); }
+  else { n.state = (n.state + dir + n.outs.length) % n.outs.length; n.pop = 1; beep(360, 0.05, 'square', 0.025); }
+});
+
+const $ = id => document.getElementById(id);
+function setPause(p) {
+  if (!S || !S.running) return;
+  S.paused = p; $('pauseScreen').classList.toggle('hidden', !p);
+}
+addEventListener('keydown', e => {
+  if (!S) return;
+  if (e.code === 'Space' || e.code === 'Enter') {
+    if (!S.running) {
+      const ov = !$('startScreen').classList.contains('hidden') || !$('overScreen').classList.contains('hidden');
+      if (ov) { e.preventDefault(); start(); }
+      return;
+    }
+    e.preventDefault(); if (S.paused) setPause(false); else release();
+  } else if (e.code === 'KeyP' || e.code === 'Escape') { setPause(!S.paused); }
+  else if (e.code === 'KeyR') { swapTile(); }
+});
+addEventListener('blur', () => setPause(true));
+$('resumeBtn').onclick = () => setPause(false);
+
+function start() { newGame(); $('startScreen').classList.add('hidden'); $('overScreen').classList.add('hidden'); beep(440, 0.1, 'triangle', 0.04); }
+$('startBtn').onclick = start; $('againBtn').onclick = start;
+
+function gameOver() {
+  S.running = false; S.held = null; hover = null;
+  const best = Math.max(loadBest(), S.score); saveBest(best);
+  $('finalScore').textContent = S.score;
+  $('finalStats').textContent = `${S.delivered} orders filled · reached shift ${shift()} · best combo x${S.bestCombo} · ${S.returned} returned`;
+  $('bestLine').textContent = S.score >= best && S.score > 0 ? 'New personal best!' : `Best: ${best}`;
+  setTimeout(() => $('overScreen').classList.remove('hidden'), 700);
+}
+
+// ---------- loop ----------
+newGame(); S.running = false; // idle scene behind the start screen
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (S.running && !S.paused) update(dt);
+  else if (!S.running) { S.time += dt; S.beltOff = (S.beltOff + 30 * dt) % 1000; tickFx(dt); }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// test hook (used by the automated check; harmless in play)
+window.__zw = { get S() { return S; }, N, analyze, predict, canReach, startsFor, solvableAny, makeTile, newGame, release, update, MAILS, ROUTES };
+})();
+</script>
+</body>
+</html>
