@@ -2,29 +2,31 @@
 
 ![Zahlenwerk](zahlenwerk-wallpaper.webp)
 
-A cozy browser puzzle game about conveyor belts and arithmetic. Numbered tiles leave the factory, ride the belts through **+ / − / ×** stations and get routed by switches to mailboxes. Each mailbox wants one exact number.
+A cozy browser game about conveyor belts and quick arithmetic. Numbered tiles pile up in the factory. You send them onto the belts and flip the switches so each tile reaches a mailbox whose station turns it into the number that mailbox wants.
+
+Each decision is small ("7 through +3 is 10, so mailbox 2"). The challenge is keeping several tiles moving at once without mixing up their routes, while the factory speeds up.
 
 **Play:** open `index.html` in a browser. There's no build step and nothing to install.
 
 ## How to play
 
-1. A numbered tile waits in the **factory**. It only leaves when you click the factory or press <kbd>Space</kbd>.
-2. Click a **station** to change its operation (`+`, `−`, `×`). Right-click goes backwards. Click a **switch** to change where tiles go.
-3. A **dotted preview** shows where the waiting tile will go and what number it turns into at each station. Send it when the preview ends on **✓**.
-4. Fill each mailbox's order before its timer runs out.
+1. Tiles pile up in the **factory**. <kbd>Space</kbd> (or a click on the factory) sends the next one.
+2. Each **mailbox** shows the number it wants. Its **station** (e.g. `+3`) changes every tile on the way in.
+3. Steer with the **switches**: <kbd>1</kbd>–<kbd>4</kbd> (or clicking a mailbox) sets the whole route, <kbd>0</kbd>/<kbd>X</kbd> sends to the recycler. You can also click a single switch.
+4. A switch only matters at the moment a tile reaches it. Set the next route once the previous tile has passed.
 
 | Thing | Rule |
 |---|---|
 | Order runs out of time | You lose a gear ⚙ (you have 5) |
 | Wrong number delivered | Tile is sent back: −25 points, combo lost |
-| Shift completed (5 orders) | +1 gear, faster belts, less patient orders |
-| Shift 3 and later | The factory pushes waiting tiles out by itself after a while |
-| <kbd>R</kbd> / right-click factory | Swap the waiting tile (−10 points) |
+| 6 tiles in the factory | The factory jams and sends tiles out by itself, wherever the switches point |
+| New shift (every 8 orders) | +1 gear, stations retooled, faster belts, tiles arrive more often |
+| Shift 1 / 2 / 3+ | `+` only / `+` and `−` / `×` joins and every mailbox takes two orders |
 | <kbd>P</kbd> / <kbd>Esc</kbd> | Pause |
 
-Tiles that are already moving show a badge: **✓** will fill an order, **✕** won't, **♻** is going to the recycler, **2** means another tile reaches that order first. Changing a station also changes tiles still upstream of it, so watch the badges when you run several tiles at once.
+Tiles on the belt show where they're headed with the current switch settings: **✓** fits an order, **✕** doesn't, **♻** goes to the recycler, **2** means another tile reaches that order first. A small ✓ on an order bubble means a tile is already on its way to fill it.
 
-Fairness: every tile the factory produces can fill at least one open order with some combination of station settings. Every order can be reached from at least one starting number 1–9.
+Most tiles the factory produces fill an open order that no other tile is heading for yet. Some are junk that fits nowhere and belongs in the recycler, and more of them show up in later shifts.
 
 ## Project layout
 
