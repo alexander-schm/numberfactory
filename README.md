@@ -2,37 +2,51 @@
 
 ![Zahlenwerk](zahlenwerk-wallpaper.webp)
 
-A cozy browser game about conveyor belts and quick arithmetic. Numbered tiles pile up in the factory. You send them onto the belts and flip the switches so each tile reaches a mailbox whose station turns it into the number that mailbox wants.
-
-Each decision is small ("7 through +3 is 10, so mailbox 2"). The challenge is keeping several tiles moving at once without mixing up their routes, while the factory speeds up.
+A cozy browser game about conveyor belts. Numbered tiles leave the factory, ride through stations, adders and gates, and have to reach the mailbox that wants them. You never do the maths yourself: every mailbox shows what the waiting tile would become on the way there. The challenge is timing, juggling several tiles at once, and using each level's machines well.
 
 **Play:** open `index.html` in a browser. There's no build step and nothing to install.
 
-## How to play
+## Levels
 
-1. Tiles pile up in the **factory**. <kbd>Space</kbd> (or a click on the factory) sends the next one.
-2. Each **mailbox** shows the number it wants. Its **station** (e.g. `+3`) changes every tile on the way in.
-3. Steer with the **switches**: <kbd>1</kbd>–<kbd>4</kbd> (or clicking a mailbox) sets the whole route, <kbd>0</kbd>/<kbd>X</kbd> sends to the recycler. You can also click a single switch.
-4. A switch only matters at the moment a tile reaches it. Set the next route once the previous tile has passed.
+| # | Level | What's new |
+|---|---|---|
+| 1 | First Shift | Sending tiles and pointing a switch |
+| 2 | Recycling | Junk tiles, a 3-way switch, the recycler |
+| 3 | Distribution | Four mailboxes; one key sets every switch on the way |
+| 4 | The Adder | A machine that holds one tile and merges it with the next into their sum |
+| 5 | Holding Track | Gates you click to stop and release tiles |
+| 6 | Special Delivery | Golden tiles (double points), wildcards (fit any order), bombs (recycle them!) |
+| 7 | Half & Swap | ½ (odd numbers break), ⇄ digit swap (12 → 21) |
+| 8 | Grand Factory | Everything at once |
 
-| Thing | Rule |
+Each level has a goal (fill N orders, and on adder levels a number of sums). Stars: ★ for finishing, ★ for losing no gear, ★ for beating the par time. Progress is saved in the browser.
+
+## Controls
+
+| Key | Action |
 |---|---|
-| Order runs out of time | You lose a gear ⚙ (you have 5) |
-| Wrong number delivered | Tile is sent back: −25 points, combo lost |
-| 6 tiles in the factory | The factory jams and sends tiles out by itself, wherever the switches point |
-| New shift (every 8 orders) | +1 gear, stations retooled, faster belts, tiles arrive more often |
-| Shift 1 / 2 / 3+ | `+` only / `+` and `−` / `×` joins and every mailbox takes two orders |
+| <kbd>Space</kbd> / click the factory | Send the waiting tile |
+| <kbd>1</kbd>–<kbd>4</kbd> / click a mailbox | Set every switch on the route to that mailbox |
+| <kbd>0</kbd> / <kbd>X</kbd> / click the recycler | Route to the recycler |
+| <kbd>A</kbd> / click the adder | Route to the adder |
+| Click a switch | Flip just that switch (right-click flips backwards) |
+| Click a gate / <kbd>G</kbd> | Close or open one gate / all gates |
 | <kbd>P</kbd> / <kbd>Esc</kbd> | Pause |
 
-Tiles on the belt show where they're headed with the current switch settings: **✓** fits an order, **✕** doesn't, **♻** goes to the recycler, **2** means another tile reaches that order first. A small ✓ on an order bubble means a tile is already on its way to fill it.
+## Reading the board
 
-Most tiles the factory produces fill an open order that no other tile is heading for yet. Some are junk that fits nowhere and belongs in the recycler, and more of them show up in later shifts.
+- **Chips under each mailbox** show what the waiting tile would arrive as: `→ 14 ✓` fills an order, `(taken)` means another tile is already on its way to that order, `+ ?` means it would wait in the adder.
+- **Badges on moving tiles** show what each one will do with the current switch settings: ✓ fill an order, ✕ wrong, ♻ recycler, + wait in the adder, 2 another tile gets there first, ! bomb in the wrong place. The prediction plays all tiles forward in arrival order, adder merges included.
+- A switch only matters at the moment a tile reaches it, so you can send the next tile right away and change the route once the previous tile has passed.
+- Up to 6 tiles fit in the factory queue. If it overflows, the factory jams and sends tiles out wherever the switches point.
+
+Fairness: every order is generated together with the tiles that can fill it, including both halves of an adder sum. When a tile is waiting in the adder, the factory plans a matching partner next. If no order can use the held tile, the adder's order changes to one that can.
 
 ## Project layout
 
 ```
 index.html                 the whole game (canvas + vanilla JS, no dependencies)
-assets/*.png               machine sprites rendered in Blender
+assets/*.png               machine and tile sprites rendered in Blender
 blender/render_sprites.py  script that models and renders the sprites
 zahlenwerk-wallpaper.webp  the original artwork the game is based on
 ```

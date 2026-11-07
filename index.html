@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Zahlenwerk</title>
-<meta name="description" content="Zahlenwerk – a cozy number-factory game. Flip the switches, route numbered tiles to the right mailbox, keep the factory running.">
+<meta name="description" content="Zahlenwerk – a cozy number-factory game. Route numbered tiles through stations, adders and gates to fill the orders.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -13,18 +13,29 @@
   canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(246,243,232,.74);backdrop-filter:blur(4px);padding:16px;box-sizing:border-box;overflow:auto}
   .overlay.hidden{display:none}
-  .card{background:#fffdf7;border:3px solid var(--ink);border-radius:22px;box-shadow:0 10px 0 rgba(29,107,98,.18);padding:26px 30px;max-width:600px;width:100%;text-align:center;box-sizing:border-box}
-  h1{margin:0 0 6px;font-size:clamp(42px,9vw,74px);font-weight:700;color:var(--ink);letter-spacing:.5px;
+  .card{background:#fffdf7;border:3px solid var(--ink);border-radius:22px;box-shadow:0 10px 0 rgba(29,107,98,.18);padding:24px 28px;max-width:640px;width:100%;text-align:center;box-sizing:border-box;margin:auto}
+  h1{margin:0 0 4px;font-size:clamp(40px,8vw,70px);font-weight:700;color:var(--ink);letter-spacing:.5px;
      text-shadow:3px 3px 0 #fff,-3px -3px 0 #fff,3px -3px 0 #fff,-3px 3px 0 #fff,0 7px 0 rgba(29,107,98,.25)}
+  h2{margin:0 0 6px;font-size:30px;color:var(--ink)}
   p{line-height:1.45;margin:8px 0}
-  ol{text-align:left;padding-left:22px;line-height:1.5;margin:14px 0}
-  li{margin:5px 0}
-  li b{color:var(--ink)}
   kbd{font-family:inherit;background:#eef5f3;border:1px solid #9dbab4;border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:.9em}
-  button{font-family:inherit;font-size:22px;font-weight:600;color:#fff;background:var(--ink);border:0;border-radius:14px;padding:12px 34px;margin-top:12px;cursor:pointer;box-shadow:0 5px 0 #0f4740}
+  button{font-family:inherit;font-size:20px;font-weight:600;color:#fff;background:var(--ink);border:0;border-radius:14px;padding:10px 26px;margin:12px 4px 0;cursor:pointer;box-shadow:0 5px 0 #0f4740}
+  button.alt{background:#fffdf7;color:var(--ink);border:2px solid var(--ink);box-shadow:0 4px 0 rgba(29,107,98,.3)}
   button:active{transform:translateY(3px);box-shadow:0 2px 0 #0f4740}
-  .big{font-size:40px;font-weight:700;color:var(--ink)}
   .muted{opacity:.7;font-size:14px}
+  .levels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0 4px}
+  @media (max-width:560px){ .levels{grid-template-columns:repeat(2,1fr)} }
+  .lv{border:2px solid #9dbab4;border-radius:14px;padding:10px 8px;cursor:pointer;background:#f4f8f6;text-align:center;transition:transform .1s, border-color .1s}
+  .lv:hover,.lv:focus-visible{transform:translateY(-2px);border-color:var(--ink);outline:none}
+  .lv .n{font-size:13px;font-weight:600;opacity:.65}
+  .lv .t{font-size:16px;font-weight:700;color:var(--ink);line-height:1.15;margin:2px 0}
+  .lv .s{font-size:18px;letter-spacing:2px;color:#e0a23e}
+  .lv .s .off{color:#d3dcd9}
+  .lv .m{font-size:11px;opacity:.75;line-height:1.2;min-height:26px}
+  .intro{text-align:left;font-size:16px}
+  .intro b{color:var(--ink)}
+  .stars{font-size:46px;letter-spacing:6px;color:#e0a23e;margin:4px 0}
+  .stars .off{color:#d3dcd9}
   #rotate{display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#fffdf7;border:2px solid var(--ink);border-radius:12px;padding:6px 14px;font-size:14px;color:var(--ink);pointer-events:none;white-space:nowrap}
   @media (orientation:portrait) and (max-width:700px){ #rotate{display:block} }
 </style>
@@ -36,33 +47,36 @@
 <div class="overlay" id="startScreen">
   <div class="card">
     <h1>Zahlenwerk</h1>
-    <p>The number factory needs a dispatcher. Keep the tiles flowing!</p>
-    <ol>
-      <li>Numbered tiles pile up in the <b>factory</b>. Send the next one with <kbd>Space</kbd> or a click on the factory.</li>
-      <li>Each <b>mailbox</b> wants a number. Its <b>station</b> changes every tile on the way in: a 7 going through <b>+3</b> arrives as 10.</li>
-      <li>Steer tiles with the <b>switches</b>: press <kbd>1</kbd>–<kbd>4</kbd> (or click a mailbox) to set the whole route, <kbd>0</kbd> for the recycler. You can also click a single switch.</li>
-      <li>A switch only matters when a tile reaches it. Change the route after the previous tile has passed.</li>
-    </ol>
-    <p class="muted">Orders that run out of time cost a gear ⚙. Lose all 5 and the factory stops. Each new shift gives a gear back.<br>
-      If 6 tiles pile up, the factory jams and sends tiles out by itself. Wrong numbers are sent back (−25).<br>
-      Tiles show where they're headed: ✓ fits, ✕ doesn't, ♻ recycler, 2 = another tile gets that order first. <kbd>P</kbd> pauses.</p>
-    <button id="startBtn">Start shift</button>
+    <p>Send numbered tiles through stations, adders and gates to fill the orders. Every mailbox shows what the waiting tile would become, so no mental maths needed. The trick is timing.</p>
+    <div class="levels" id="levels"></div>
+    <p class="muted"><kbd>Space</kbd> send · <kbd>1</kbd>–<kbd>4</kbd> route to mailbox · <kbd>0</kbd> recycler · <kbd>A</kbd> adder · <kbd>G</kbd> all gates · <kbd>P</kbd> pause</p>
   </div>
 </div>
 
-<div class="overlay hidden" id="overScreen">
+<div class="overlay hidden" id="introScreen">
   <div class="card">
-    <h1>Feierabend</h1>
-    <p>The factory has ground to a halt.</p>
-    <div class="big" id="finalScore">0</div>
-    <p id="finalStats"></p>
-    <p id="bestLine" class="muted"></p>
-    <button id="againBtn">New shift</button>
+    <div class="muted" id="introNum"></div>
+    <h2 id="introTitle"></h2>
+    <div class="intro" id="introText"></div>
+    <p class="muted" id="introGoal"></p>
+    <button id="introGo">Start ▶</button>
+    <button class="alt" id="introBack">Levels</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="endScreen">
+  <div class="card">
+    <h2 id="endTitle"></h2>
+    <div class="stars" id="endStars"></div>
+    <p id="endStats"></p>
+    <button id="endNext">Next level ▶</button>
+    <button class="alt" id="endRetry">Retry</button>
+    <button class="alt" id="endLevels">Levels</button>
   </div>
 </div>
 
 <div class="overlay hidden" id="pauseScreen">
-  <div class="card"><h1>Pause</h1><button id="resumeBtn">Continue</button></div>
+  <div class="card"><h2>Pause</h2><button id="resumeBtn">Continue</button><button class="alt" id="pauseLevels">Levels</button></div>
 </div>
 
 <script>
@@ -71,7 +85,6 @@
 const W = 1200, H = 720;
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 let dpr = 1, scale = 1, offX = 0, offY = 0;
-
 function resize() {
   dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
@@ -84,11 +97,11 @@ addEventListener('resize', resize); resize();
 // ---------- helpers ----------
 const rand = n => Math.floor(Math.random() * n);
 const pick = a => a[rand(a.length)];
-const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const applyOp = (v, op, n) => op === '+' ? v + n : op === '−' ? v - n : v * n;
-const isScrap = v => v < 1 || v > 99;
-const OP_COLOR = { '+': '#1f8a7a', '−': '#c25a5a', '×': '#e0874a' };
-const GOOD = '#2a9d8f', BAD = '#d0564f', DUP = '#b08a3e', RECYC = '#e0874a';
+const rev = v => parseInt(String(v).split('').reverse().join(''), 10);
+const isScrap = v => !(v >= 1 && v <= 99);
+const OP_COLOR = { '+': '#1f8a7a', '−': '#c25a5a', '×': '#e0874a', '÷': '#7a5ea8', '⇄': '#3f7fb0' };
+const GOOD = '#2a9d8f', BAD = '#d0564f', DUP = '#b08a3e', RECYC = '#e0874a', ADDC = '#3f7fb0', GOLD = '#c99a1e', WILD = '#7a5ea8';
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function circ(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
 function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
@@ -97,7 +110,7 @@ function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i
 // Each PNG is framed so the top-centre of the machine sits in the image centre.
 // Size = drawn size in game px (1 Blender unit = 50 px). Missing sprites fall back to vector drawing.
 const SPR = {};
-const SPR_SIZE = { station: 90, switch: 75, mailbox: 90, recycler: 90, factory: 206, tile: 45, tile_scrap: 45 };
+const SPR_SIZE = { station: 90, switch: 75, mailbox: 90, recycler: 90, factory: 206, adder: 100, tile: 45, tile_scrap: 45, tile_gold: 45, tile_bomb: 45 };
 for (const k in SPR_SIZE) { const im = new Image(); im.onload = () => { SPR[k] = im; }; im.src = 'assets/' + k + '.png'; }
 function spr(k, x, y, s = 1) {
   const im = SPR[k]; if (!im) return false;
@@ -116,46 +129,161 @@ function beep(f, d = 0.08, type = 'sine', vol = 0.05, slide = 0) {
   } catch (e) {}
 }
 
-// ---------- layout ----------
-// factory → J1 ─┬─ J2 ─┬─ S1 → M1
-//               │      └─ S2 → M2
-//               ├─ recycler
-//               └─ J3 ─┬─ S3 → M3
-//                      └─ S4 → M4
-const N = {
-  src: { x: 95,   y: 360, type: 'src', out: 'J1' },
-  J1:  { x: 330,  y: 360, type: 'sw',  outs: ['J2', 'BIN', 'J3'] },
-  BIN: { x: 520,  y: 360, type: 'bin' },
-  J2:  { x: 560,  y: 195, type: 'sw',  outs: ['S1', 'S2'] },
-  J3:  { x: 560,  y: 530, type: 'sw',  outs: ['S3', 'S4'] },
-  S1:  { x: 870,  y: 105, type: 'st',  out: 'M1' },
-  S2:  { x: 870,  y: 285, type: 'st',  out: 'M2' },
-  S3:  { x: 870,  y: 440, type: 'st',  out: 'M3' },
-  S4:  { x: 870,  y: 625, type: 'st',  out: 'M4' },
-  M1:  { x: 1075, y: 105, type: 'mail', key: '1' },
-  M2:  { x: 1075, y: 285, type: 'mail', key: '2' },
-  M3:  { x: 1075, y: 440, type: 'mail', key: '3' },
-  M4:  { x: 1075, y: 625, type: 'mail', key: '4' },
-};
-for (const k in N) N[k].id = k;
-const MAILS = ['M1', 'M2', 'M3', 'M4'];
-const STATION = { M1: 'S1', M2: 'S2', M3: 'S3', M4: 'S4' };
-const ROUTE = { M1: { J1: 0, J2: 0 }, M2: { J1: 0, J2: 1 }, M3: { J1: 2, J3: 0 }, M4: { J1: 2, J3: 1 }, BIN: { J1: 1 } };
-const FACTORY_BOX = { x: 95 - 68, y: 360 - 84, w: 136, h: 210 }; // building + send button
-const DOOR = { x: 95 + 37, y: 359 };                            // the output chute on the roof
-const CAP = 6;                                                  // factory queue capacity (incl. the tile on the chute)
+// ---------- levels ----------
+// Node types: src (factory), sw (switch), st (station: op/val), half (÷2), swap (⇄ digits),
+// add (adder: holds one tile, merges the next into the sum), gate (click to stop/go), bin, mail.
+// out / outs entries: 'ID' or { to: 'ID', bend: 'h' } (h = go horizontal first, enter the target vertically).
+const TREE = (ops) => ({
+  src: { x: 95, y: 360, type: 'src', out: 'J1' },
+  J1:  { x: 330, y: 360, type: 'sw', outs: ['J2', 'BIN', 'J3'] },
+  BIN: { x: 520, y: 360, type: 'bin' },
+  J2:  { x: 560, y: 195, type: 'sw', outs: ['S1', 'S2'] },
+  J3:  { x: 560, y: 530, type: 'sw', outs: ['S3', 'S4'] },
+  S1:  { x: 870, y: 105, out: 'M1', ...ops[0] },
+  S2:  { x: 870, y: 285, out: 'M2', ...ops[1] },
+  S3:  { x: 870, y: 440, out: 'M3', ...ops[2] },
+  S4:  { x: 870, y: 625, out: 'M4', ...ops[3] },
+  M1:  { x: 1075, y: 105, type: 'mail' }, M2: { x: 1075, y: 285, type: 'mail' },
+  M3:  { x: 1075, y: 440, type: 'mail' }, M4: { x: 1075, y: 625, type: 'mail' },
+});
+const st = (op, val) => ({ type: 'st', op, val });
 
-const edges = {};
+const LEVELS = [
+  { name: 'First Shift', par: 70, tag: 'Routing', goal: 6, gears: 3, spawn: 4.4, speed: 72, patience: 85, junk: 0,
+    intro: `<p>Tiles wait in the <b>factory</b> until you send them with <kbd>Space</kbd>.</p>
+            <p>Press <kbd>1</kbd> or <kbd>2</kbd> (or click a mailbox) to point the switch. Below each mailbox you can see what the waiting tile would arrive as. Send it when one says <b>✓</b>.</p>`,
+    nodes: {
+      src: { x: 95, y: 360, type: 'src', out: 'J1' },
+      J1: { x: 330, y: 360, type: 'sw', outs: ['S1', 'S2'] },
+      S1: { x: 700, y: 200, out: 'M1', ...st('+', 2) }, S2: { x: 700, y: 520, out: 'M2', ...st('+', 5) },
+      M1: { x: 1000, y: 200, type: 'mail' }, M2: { x: 1000, y: 520, type: 'mail' },
+    } },
+  { name: 'Recycling', par: 100, tag: 'Junk & 3-way switch', goal: 8, gears: 3, spawn: 3.9, speed: 75, patience: 80, junk: 0.25,
+    intro: `<p>Some tiles fit no order. Send them to the <b>recycler</b> with <kbd>0</kbd>. It costs nothing.</p>
+            <p>This switch has three ways now, and a <b>−</b> station has shown up.</p>`,
+    nodes: {
+      src: { x: 95, y: 360, type: 'src', out: 'J1' },
+      J1: { x: 330, y: 360, type: 'sw', outs: ['S1', 'BIN', 'S2'] },
+      BIN: { x: 560, y: 360, type: 'bin' },
+      S1: { x: 720, y: 190, out: 'M1', ...st('+', 3) }, S2: { x: 720, y: 530, out: 'M2', ...st('−', 2) },
+      M1: { x: 1000, y: 190, type: 'mail' }, M2: { x: 1000, y: 530, type: 'mail' },
+    } },
+  { name: 'Distribution', par: 85, tag: '4 mailboxes', goal: 10, gears: 3, spawn: 3.5, speed: 80, patience: 75, junk: 0.12,
+    intro: `<p>Four mailboxes. <kbd>1</kbd>–<kbd>4</kbd> sets <b>every switch on the way</b> at once.</p>
+            <p>A switch only matters at the moment a tile reaches it. You can send the next tile right away and change the route once the previous tile is past the switch.</p>`,
+    nodes: TREE([st('+', 4), st('−', 3), st('×', 2), st('+', 1)]) },
+  { name: 'The Adder', par: 110, tag: 'Merge two tiles', goal: 8, sums: 3, gears: 3, spawn: 3.6, speed: 78, patience: 85, junk: 0.1,
+    intro: `<p>The <b>adder</b> keeps the first tile that arrives. The next one gets merged with it into their <b>sum</b>.</p>
+            <p>Mailbox 2 only gets sums. <kbd>A</kbd> (or clicking the adder) routes to it. You can feed it from either side. The adder always shows what it's holding.</p>`,
+    nodes: {
+      src: { x: 95, y: 360, type: 'src', out: 'J1' },
+      J1: { x: 300, y: 360, type: 'sw', outs: ['J2', 'BIN', 'J3'] },
+      BIN: { x: 470, y: 360, type: 'bin' },
+      J2: { x: 480, y: 190, type: 'sw', outs: ['S1', { to: 'A1', bend: 'h' }] },
+      J3: { x: 480, y: 530, type: 'sw', outs: [{ to: 'A1', bend: 'h' }, 'S3'] },
+      S1: { x: 800, y: 100, out: 'M1', ...st('+', 3) },
+      A1: { x: 800, y: 360, type: 'add', out: 'M2' },
+      S3: { x: 800, y: 620, out: 'M3', ...st('×', 2) },
+      M1: { x: 1050, y: 100, type: 'mail' }, M2: { x: 1050, y: 360, type: 'mail' }, M3: { x: 1050, y: 620, type: 'mail' },
+    } },
+  { name: 'Holding Track', par: 150, tag: 'Gates', goal: 9, sums: 4, gears: 3, spawn: 3.4, speed: 80, patience: 85, junk: 0.12,
+    intro: `<p><b>Gates</b> stop tiles. Click one to close it (red) and again to open it (green). <kbd>G</kbd> toggles all gates.</p>
+            <p>Park one half of a sum in front of the adder until you have the other half, or hold tiles back while you change switches.</p>`,
+    nodes: {
+      src: { x: 95, y: 360, type: 'src', out: 'J1' },
+      J1: { x: 290, y: 360, type: 'sw', outs: ['J2', 'BIN', 'J3'] },
+      BIN: { x: 440, y: 360, type: 'bin' },
+      J2: { x: 450, y: 190, type: 'sw', outs: ['S1', 'G1'] },
+      J3: { x: 450, y: 530, type: 'sw', outs: ['G2', 'S3'] },
+      S1: { x: 820, y: 100, out: 'M1', ...st('+', 2) },
+      G1: { x: 690, y: 190, type: 'gate', out: { to: 'A1', bend: 'h' } },
+      G2: { x: 690, y: 530, type: 'gate', out: { to: 'A1', bend: 'h' } },
+      A1: { x: 850, y: 360, type: 'add', out: 'S2' },
+      S2: { x: 962, y: 360, out: 'M2', ...st('×', 2) },
+      S3: { x: 820, y: 620, out: 'M3', ...st('−', 1) },
+      M1: { x: 1060, y: 100, type: 'mail' }, M2: { x: 1060, y: 360, type: 'mail' }, M3: { x: 1060, y: 620, type: 'mail' },
+    } },
+  { name: 'Special Delivery', par: 90, tag: 'Gold, wild & bombs', goal: 12, gears: 3, spawn: 3.3, speed: 82, patience: 72, junk: 0.08,
+    gold: 0.14, wild: 0.07, bomb: 0.1,
+    intro: `<p><b>Golden tiles ★</b> are worth double points.</p>
+            <p><b>Wildcards ?</b> fit any order in any mailbox.</p>
+            <p><b>Bombs</b> must go to the recycler. Anywhere else they cost a gear.</p>`,
+    nodes: TREE([st('+', 2), st('×', 3), st('−', 4), st('+', 6)]) },
+  { name: 'Half & Swap', par: 85, tag: '½ and ⇄', goal: 12, gears: 3, spawn: 3.3, speed: 82, patience: 75, junk: 0.1,
+    intro: `<p><b>½</b> halves a tile, but an odd number breaks into <b>scrap</b>.</p>
+            <p><b>⇄</b> swaps the digits: 12 becomes 21, 40 becomes 4.</p>
+            <p>The mailboxes still show you every result.</p>`,
+    nodes: TREE([{ type: 'half' }, { type: 'swap' }, st('+', 7), st('×', 2)]) },
+  { name: 'Grand Factory', par: 210, tag: 'Everything', goal: 14, sums: 3, gears: 3, spawn: 3.1, speed: 84, patience: 85, junk: 0.08,
+    gold: 0.1, wild: 0.05, bomb: 0.08,
+    intro: `<p>Everything at once: stations, ½, two gated inputs into the adder, and special tiles.</p><p>Good luck, shift manager!</p>`,
+    nodes: {
+      src: { x: 95, y: 360, type: 'src', out: 'J1' },
+      J1: { x: 300, y: 360, type: 'sw', outs: ['J2', 'BIN', 'J3'] },
+      BIN: { x: 460, y: 360, type: 'bin' },
+      J2: { x: 470, y: 180, type: 'sw', outs: ['S1', 'S2'] },
+      J3: { x: 470, y: 540, type: 'sw', outs: ['S3', 'S4'] },
+      S1: { x: 640, y: 100, out: 'M1', ...st('+', 5) },
+      S2: { x: 640, y: 250, out: 'G1', type: 'half' },
+      G1: { x: 820, y: 250, type: 'gate', out: 'A1' },
+      S3: { x: 640, y: 470, out: 'G2', ...st('+', 3) },
+      G2: { x: 820, y: 470, type: 'gate', out: 'A1' },
+      A1: { x: 820, y: 360, type: 'add', out: 'S5' },
+      S5: { x: 945, y: 360, out: 'M2', ...st('×', 2) },
+      S4: { x: 640, y: 620, out: 'M3', ...st('×', 3) },
+      M1: { x: 1060, y: 100, type: 'mail' }, M2: { x: 1060, y: 360, type: 'mail' }, M3: { x: 1060, y: 620, type: 'mail' },
+    } },
+];
+
+// ---------- graph ----------
+let L, N, edges, MAILS, ADDERS, GATES, PRESET;
 const edgeKey = (a, b) => a + '>' + b;
-function makeEdge(a, b) {
-  const A = N[a], B = N[b];
-  const pts = A.y === B.y ? [{ x: A.x, y: A.y }, { x: B.x, y: B.y }]
-                          : [{ x: A.x, y: A.y }, { x: A.x, y: B.y }, { x: B.x, y: B.y }];
+const norm = o => typeof o === 'string' ? { to: o } : o;
+function buildLevel(idx) {
+  L = LEVELS[idx]; L.idx = idx;
+  N = JSON.parse(JSON.stringify(L.nodes));
+  edges = {};
+  for (const k in N) {
+    const n = N[k]; n.id = k; n.pop = 0;
+    if (n.out) n.out = norm(n.out);
+    if (n.outs) { n.outs = n.outs.map(norm); n.state = 0; }
+    if (n.type === 'gate') n.open = true;
+    if (n.type === 'add') n.held = null;
+  }
+  for (const k in N) { const n = N[k]; for (const o of n.outs || (n.out ? [n.out] : [])) makeEdge(k, o); }
+  MAILS = Object.keys(N).filter(k => N[k].type === 'mail').sort((a, b) => N[a].y - N[b].y);
+  MAILS.forEach((m, i) => { N[m].key = String(i + 1); N[m].orders = []; N[m].flash = 0; N[m].bad = 0; N[m].ping = 0; });
+  ADDERS = Object.keys(N).filter(k => N[k].type === 'add');
+  GATES = Object.keys(N).filter(k => N[k].type === 'gate');
+  PRESET = {};
+  for (const t of [...MAILS, ...ADDERS, ...Object.keys(N).filter(k => N[k].type === 'bin')]) {
+    const ps = paths('src', t).sort((a, b) => a.length - b.length);
+    if (ps.length) PRESET[t] = ps[0];
+  }
+}
+function makeEdge(a, o) {
+  const A = N[a], B = N[o.to];
+  let pts;
+  if (A.x === B.x || A.y === B.y) pts = [{ x: A.x, y: A.y }, { x: B.x, y: B.y }];
+  else if (o.bend === 'h') pts = [{ x: A.x, y: A.y }, { x: B.x, y: A.y }, { x: B.x, y: B.y }];
+  else pts = [{ x: A.x, y: A.y }, { x: A.x, y: B.y }, { x: B.x, y: B.y }];
   let len = 0; const segs = [];
   for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y); segs.push(l); len += l; }
-  edges[edgeKey(a, b)] = { a, b, pts, segs, len };
+  edges[edgeKey(a, o.to)] = { key: edgeKey(a, o.to), a, b: o.to, pts, segs, len };
 }
-for (const k in N) { const n = N[k]; if (n.out) makeEdge(k, n.out); if (n.outs) n.outs.forEach(o => makeEdge(k, o)); }
+const nextIds = id => { const n = N[id]; return n.outs ? n.outs.map(o => o.to) : n.out ? [n.out.to] : []; };
+// all node paths from `from` (exclusive) to `to` (inclusive)
+function paths(from, to, seen = new Set()) {
+  if (from === to) return [[]];
+  const res = [];
+  for (const nx of nextIds(from)) {
+    if (seen.has(nx)) continue;
+    seen.add(nx);
+    for (const p of paths(nx, to, seen)) res.push([nx, ...p]);
+    seen.delete(nx);
+  }
+  return res;
+}
 function pointOn(e, d) {
   for (let i = 0; i < e.segs.length; i++) {
     if (d <= e.segs[i] || i === e.segs.length - 1) {
@@ -165,124 +293,224 @@ function pointOn(e, d) {
     d -= e.segs[i];
   }
 }
-
-// ---------- rules ----------
-let S;
-const BEST_KEY = 'zahlenwerk-best';
-function loadBest() { try { return +localStorage.getItem(BEST_KEY) || 0; } catch (e) { return 0; } }
-function saveBest(v) { try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) {} }
-
-const PER_SHIFT = 8;
-const shift = () => 1 + Math.floor(S.delivered / PER_SHIFT);
-const speed = () => Math.min(124, 80 + (shift() - 1) * 6);
-const spawnInterval = () => Math.max(1.1, 3.8 - (shift() - 1) * 0.3);
-const patience = () => Math.max(26, 70 - (shift() - 1) * 5);
-const slots = () => shift() >= 3 ? 2 : 1;
-const junkChance = () => Math.min(0.3, 0.1 + (shift() - 1) * 0.04);
-const RELOAD = 0.75; // min. gap between two tiles leaving the factory
-
-const stationOf = m => N[STATION[m]];
-const through = (v, m) => { const s = stationOf(m); return applyOp(v, s.op, s.val); };
-const fitsOrder = (v, m) => N[m].orders.find(o => o.t === through(v, m)) || null;
-const fitsAny = v => MAILS.some(m => fitsOrder(v, m));
-
-// Stations are retooled every shift: + only, then + and −, then × joins in.
-function retool(sh) {
-  const vals = shuffle([1, 2, 3, 4, 5, 6]);
-  let ops;
-  if (sh === 1) ops = ['+', '+', '+', '+'];
-  else if (sh === 2) ops = shuffle(['+', '+', '−', '−']);
-  else ops = shuffle(['+', '−', '×', pick(['+', '−', '×'])]);
-  MAILS.forEach((m, i) => {
-    const s = stationOf(m);
-    s.op = ops[i]; s.val = ops[i] === '×' ? 2 + rand(2) : vals[i]; s.pop = 1;
-  });
+function nextEdge(id) {
+  const n = N[id];
+  if (n.type === 'sw') return edges[edgeKey(id, n.outs[n.state].to)];
+  return n.out ? edges[edgeKey(id, n.out.to)] : null;
 }
 
-function makeOrder(m) {
-  const s = stationOf(m);
-  const taken = MAILS.flatMap(k => N[k].orders.map(o => o.t));
-  let t = 0;
-  for (let i = 0; i < 200; i++) {
-    const input = s.op === '×' ? 1 + rand(9) : s.op === '−' ? s.val + 1 + rand(12) : 1 + rand(12);
-    t = applyOp(input, s.op, s.val);
-    if (!taken.includes(t)) break;
-  }
-  const max = patience() + rand(10);
-  return { t, max, left: max, pop: 1 };
+// ---------- tile transformations ----------
+// value after a single node (stations, ÷2, ⇄); null = scrap
+function stepValue(v, n) {
+  if (n.type === 'st') v = applyOp(v, n.op, n.val);
+  else if (n.type === 'half') v = v % 2 ? NaN : v / 2;
+  else if (n.type === 'swap') v = rev(v);
+  return isScrap(v) ? null : v;
 }
-function fillOrders(m, initial = false) {
-  const n = N[m];
-  while (n.orders.length < slots()) {
-    const o = makeOrder(m);
-    if (initial) { o.max += MAILS.indexOf(m) * 8 + n.orders.length * 12; o.left = o.max; }
-    n.orders.push(o);
-  }
-}
+function nodeLabel(n) { return n.type === 'st' ? n.op + n.val : n.type === 'half' ? '½' : n.type === 'swap' ? '⇄' : ''; }
+function nodeColor(n) { return n.type === 'st' ? OP_COLOR[n.op] : n.type === 'half' ? OP_COLOR['÷'] : OP_COLOR['⇄']; }
 
-// Next tile value: usually the input that fills an order nobody is handling yet.
-function makeValue() {
-  const pending = [...S.queue, ...S.tiles.filter(t => !t.passedStation).map(t => t.v)];
-  const all = MAILS.flatMap(m => N[m].orders.map(o => ({ m, o })));
-  let open = all.filter(({ m, o }) => !pending.some(v => through(v, m) === o.t));
-  if (!open.length) open = all;
-  if (Math.random() < junkChance()) {
-    for (let i = 0; i < 30; i++) { const v = 1 + rand(15); if (!fitsAny(v)) return v; }
-  }
-  open.sort((a, b) => a.o.left - b.o.left);
-  const { m, o } = Math.random() < 0.5 ? open[0] : pick(open);
-  const s = stationOf(m);
-  return s.op === '+' ? o.t - s.val : s.op === '−' ? o.t + s.val : o.t / s.val;
-}
-
-// Where does a tile end up with the CURRENT switch settings?
-function predict(v, scrap, nodeId) {
-  const path = [];
-  let id = nodeId;
-  for (let g = 0; g < 16; g++) {
+// Simulate a tile along a node path. Returns { v, kind, scrap, pending, boom, end }.
+function simulate(tile, path, vh = null) {
+  let v = tile.v, kind = tile.kind, scrap = !!tile.scrap;
+  for (const id of path) {
     const n = N[id];
-    path.push(id);
-    if (n.type === 'st') { v = applyOp(v, n.op, n.val); if (isScrap(v)) scrap = true; id = n.out; }
-    else if (n.type === 'sw') id = n.outs[n.state];
-    else return { path, end: id, v, scrap };
+    if (n.type === 'add') {
+      const h = vh ? vh[id] : n.held;
+      if (!h) return { pending: true, end: id };
+      if (kind === 'bomb' || h.kind === 'bomb') return { kind: 'bomb', end: id, boom: true };
+      if (kind === 'wild' || h.kind === 'wild') kind = 'wild';
+      else { scrap = scrap || h.scrap; v = v + h.v; if (isScrap(v)) scrap = true; }
+    } else if (kind === 'n' && !scrap && (n.type === 'st' || n.type === 'half' || n.type === 'swap')) {
+      const r = stepValue(v, n); if (r === null) scrap = true; else v = r;
+    }
   }
-  return { path, end: id, v, scrap };
+  return { v, kind, scrap, end: path[path.length - 1] };
 }
-// Predict every tile in flight; if several would fill the same order, the first to arrive gets it.
-function analyze() {
-  const info = S.tiles.map(t => {
-    const p = predict(t.v, t.scrap, t.edge.b);
-    let rem = t.edge.len - t.d;
-    for (let i = 0; i < p.path.length - 1; i++) rem += edges[edgeKey(p.path[i], p.path[i + 1])].len;
-    return { t, p, rem, kind: 'bad' };
-  });
-  const claimed = new Set();
-  for (const i of info.sort((a, b) => a.rem - b.rem)) {
-    const n = N[i.p.end];
-    if (n.type === 'bin') { i.kind = 'bin'; continue; }
-    if (i.p.scrap) continue;
-    const free = n.orders.find(o => o.t === i.p.v && !claimed.has(o));
-    if (free) { claimed.add(free); i.kind = 'ok'; }
-    else if (n.orders.some(o => o.t === i.p.v)) i.kind = 'dup';
+// Path a tile takes from node `id` with the CURRENT switch settings (stops at adder, mail or bin).
+function currentPath(id) {
+  const p = [];
+  for (let g = 0; g < 30; g++) {
+    p.push(id);
+    const n = N[id];
+    if (n.type === 'mail' || n.type === 'bin' || n.type === 'add') return p;
+    id = n.type === 'sw' ? n.outs[n.state].to : n.out.to;
   }
-  return { info, claimed };
+  return p;
 }
 
 // ---------- state ----------
-function newGame() {
+let S;
+const PROG_KEY = 'zahlenwerk-progress';
+let progress = {};
+try { progress = JSON.parse(localStorage.getItem(PROG_KEY)) || {}; } catch (e) { progress = {}; }
+function saveProgress() { try { localStorage.setItem(PROG_KEY, JSON.stringify(progress)); } catch (e) {} }
+
+const GAP = 30, RELOAD = 0.75, CAP = 6;
+const spawnInterval = () => L.spawn * (1 - 0.25 * Math.min(1, S.delivered / L.goal));
+const fmtTime = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+function newGame(idx) {
+  buildLevel(idx);
   S = {
     running: true, paused: false, time: 0, score: 0, combo: 0, bestCombo: 0, delivered: 0, released: 0,
-    returned: 0, recycled: 0, jams: 0, lives: 5, tiles: [], fx: [], texts: [], beltOff: 0, shake: 0,
-    queue: [], reload: 0, spawnT: 0, banner: null, lastShift: 1, routeSet: 0,
+    returned: 0, recycled: 0, jams: 0, sums: 0, gears: L.gears, tiles: [], fx: [], texts: [], beltOff: 0, shake: 0,
+    queue: [], plan: [], reload: 0, spawnT: 0, won: false,
   };
-  for (const k in N) N[k].pop = 0;
-  N.J1.state = 0; N.J2.state = 0; N.J3.state = 0;
-  for (const m of MAILS) { N[m].orders = []; N[m].flash = 0; N[m].bad = 0; }
-  retool(1);
   for (const m of MAILS) fillOrders(m, true);
-  S.queue.push(makeValue(), makeValue());
+  S.queue.push(...[spawnTile(), spawnTile()].filter(Boolean));
   S.spawnT = spawnInterval();
-  S.banner = { text: 'Shift 1', sub: 'Only plus today. Route each tile to the mailbox it fits.', t: 0 };
+}
+
+// An order is generated together with the tiles that can fill it ("plan").
+function randInput(path) {
+  if (path.some(id => N[id].type === 'swap')) { let v; do v = 12 + rand(38); while (v % 10 === 0 || v % 11 === 0); return v; }
+  if (path.some(id => N[id].type === 'half')) return 2 * (1 + rand(9));
+  return 1 + rand(9);
+}
+function walk(v, path) { for (const id of path) { if (v === null) return null; v = stepValue(v, N[id]); } return v; }
+function genOrder(m) {
+  const taken = MAILS.flatMap(k => N[k].orders.map(o => o.t));
+  const ps = paths('src', m);
+  for (let tries = 0; tries < 200; tries++) {
+    const p = pick(ps);
+    const ai = p.findIndex(id => N[id].type === 'add');
+    let v, inputs;
+    if (ai < 0) { const a0 = randInput(p); v = walk(a0, p); inputs = [a0]; }
+    else {
+      const pre = p.slice(0, ai), post = p.slice(ai + 1);
+      const qs = paths('src', p[ai]).filter(q => !q.slice(0, -1).some(id => N[id].type === 'add'));
+      const q = pick(qs);
+      const a0 = randInput(pre), b0 = randInput(q);
+      const a = walk(a0, pre), b = walk(b0, q.slice(0, -1));
+      if (a === null || b === null) continue;
+      v = walk(a + b, post); inputs = [a0, b0];
+    }
+    if (v === null || v < 2 || taken.includes(v)) continue;
+    return { t: v, inputs };
+  }
+  return null;
+}
+function fillOrders(m, initial = false) {
+  const n = N[m];
+  while (n.orders.length < 1) {
+    const g = genOrder(m); if (!g) return;
+    const max = L.patience + rand(10) + (initial ? MAILS.indexOf(m) * 10 : 0);
+    const o = { t: g.t, max, left: max, pop: 1, inputs: g.inputs };
+    n.orders.push(o);
+    for (const v of g.inputs) S.plan.push({ v, order: o });
+  }
+}
+function dropOrder(n, o) {
+  n.orders = n.orders.filter(x => x !== o);
+  S.plan = S.plan.filter(e => e.order !== o);
+}
+function junkValue() {
+  for (let i = 0; i < 40; i++) {
+    const v = 1 + rand(15), t = { v, kind: 'n' };
+    if (!MAILS.some(m => { const r = simulate(t, PRESET[m]); return !r.pending && !r.scrap && N[m].orders.some(o => o.t === r.v); })) return v;
+  }
+  return 1 + rand(15);
+}
+// When a tile waits in an adder, make sure a matching partner comes next –
+// and if no sum order can use the held tile, swap that order for one that can.
+function partnerFor(a, hv, t, m) {
+  const p = paths('src', m).find(p => p.includes(a)); if (!p) return null;
+  const post = p.slice(p.indexOf(a) + 1);
+  const qs = paths('src', a).filter(q => !q.slice(0, -1).some(id => N[id].type === 'add'));
+  for (let b0 = 1; b0 <= 30; b0++) for (const q of qs) {
+    const b = walk(b0, q.slice(0, -1));
+    if (b !== null && walk(hv + b, post) === t) return b0;
+  }
+  return null;
+}
+function adderPlan(a) {
+  const h = N[a].held; if (!h || h.kind !== 'n' || h.scrap) return;
+  const sumMails = MAILS.filter(m => paths('src', m).some(p => p.includes(a)));
+  for (const m of sumMails) for (const o of N[m].orders) {
+    const b0 = partnerFor(a, h.v, o.t, m);
+    if (b0 !== null) { S.plan.unshift({ v: b0, order: o }); return; }
+  }
+  const m = sumMails[0]; if (!m) return;
+  const n = N[m], p = paths('src', m).find(p => p.includes(a)), post = p.slice(p.indexOf(a) + 1);
+  const taken = MAILS.flatMap(k => N[k].orders.map(o => o.t));
+  for (let i = 0; i < 60; i++) {
+    const b0 = 1 + rand(9), t = walk(h.v + b0, post);
+    if (t === null || t < 2 || taken.includes(t) || partnerFor(a, h.v, t, m) === null) continue;
+    for (const o of [...n.orders]) dropOrder(n, o);
+    const max = L.patience + rand(10), o = { t, max, left: max, pop: 1, inputs: [partnerFor(a, h.v, t, m)] };
+    n.orders.push(o); S.plan.unshift({ v: o.inputs[0], order: o });
+    floatText(n.x + 72, n.y - 40, 'new order', ADDC);
+    return;
+  }
+}
+// Orders whose tiles were all used up (e.g. sent to the wrong place) get their inputs planned again.
+function replan() {
+  const busy = new Set([...S.queue, ...S.tiles, ...ADDERS.map(a => N[a].held).filter(Boolean)].map(t => t.order).filter(Boolean));
+  for (const m of MAILS) for (const o of N[m].orders) if (!busy.has(o)) for (const v of o.inputs) S.plan.push({ v, order: o });
+}
+// Returns the next tile for the factory, or null if there's nothing useful to make right now.
+function spawnTile() {
+  const r = Math.random();
+  if (L.bomb && r < L.bomb) return { kind: 'bomb', v: 0 };
+  if (L.wild && r < (L.bomb || 0) + L.wild) return { kind: 'wild', v: 0 };
+  if (L.junk && Math.random() < L.junk) return { kind: 'n', v: junkValue() };
+  if (!S.plan.length) replan();
+  if (!S.plan.length) return L.junk ? { kind: 'n', v: junkValue() } : null;
+  const e = S.plan.shift();
+  return { kind: 'n', v: e.v, order: e.order, gold: !!L.gold && Math.random() < L.gold };
+}
+
+// ---------- prediction (badges & result chips) ----------
+// Play every tile in flight forward in arrival order with the CURRENT switch settings.
+// Adders are tracked virtually (vh): the first tile to arrive waits, the next one merges with it.
+// If several tiles would fill the same order, the first to arrive gets it.
+function analyze() {
+  const vh = {}; for (const a of ADDERS) vh[a] = N[a].held;
+  const info = S.tiles.map(t => {
+    const p = currentPath(t.edge.b);
+    let rem = t.edge.len - t.d;
+    for (let i = 0; i < p.length - 1; i++) rem += edges[edgeKey(p[i], p[i + 1])].len;
+    return { t, p, rem, kind: 'bad', r: null };
+  });
+  const claimed = new Set();
+  for (const i of info.sort((a, b) => a.rem - b.rem)) {
+    let path = i.p;
+    const last = N[path[path.length - 1]];
+    if (last.type === 'add') {
+      if (!vh[last.id]) {
+        const pre = simulate(i.t, path.slice(0, -1));
+        vh[last.id] = { v: pre.v, kind: i.t.kind === 'n' ? pre.kind : i.t.kind, scrap: pre.scrap };
+        i.kind = i.t.kind === 'bomb' ? 'boom' : 'add'; i.r = { pending: true, end: last.id };
+        continue;
+      }
+      path = [...path, ...currentPath(last.out.to)];
+    }
+    const r = i.r = simulate(i.t, path, vh);
+    if (last.type === 'add') vh[last.id] = null;
+    const end = N[r.end];
+    if (r.boom || (i.t.kind === 'bomb' && end.type !== 'bin')) { i.kind = 'boom'; continue; }
+    if (end.type === 'bin') { i.kind = 'bin'; continue; }
+    if (end.type !== 'mail' || r.scrap) continue;
+    const free = r.kind === 'wild' ? end.orders.find(o => !claimed.has(o)) : end.orders.find(o => o.t === r.v && !claimed.has(o));
+    if (free) { claimed.add(free); i.kind = 'ok'; }
+    else if (end.orders.some(o => o.t === r.v)) i.kind = 'dup';
+  }
+  return { info, claimed, vh };
+}
+// what would the tile on the chute become if routed to target?
+function resultFor(target, tile) {
+  const p = PRESET[target]; if (!p) return null;
+  const r = simulate(tile, p, flight.vh);
+  const n = N[target];
+  if (tile.kind === 'bomb' || r.boom) return { label: 'boom', kind: 'boom' };
+  if (r.pending) return { label: '+ ?', kind: 'add' };
+  if (r.scrap) return { label: 'scrap', kind: 'bad' };
+  const lbl = r.kind === 'wild' ? '?' : String(r.v);
+  if (n.type !== 'mail') return { label: lbl, kind: 'add' };
+  const fits = r.kind === 'wild' ? n.orders.length > 0 : n.orders.some(o => o.t === r.v);
+  const free = r.kind === 'wild' ? n.orders.some(o => !flight.claimed.has(o)) : n.orders.some(o => o.t === r.v && !flight.claimed.has(o));
+  return { label: lbl, kind: free ? 'ok' : fits ? 'dup' : 'bad' };
 }
 
 // ---------- effects ----------
@@ -293,124 +521,135 @@ function burst(x, y, color, n = 12) {
   }
 }
 function floatText(x, y, txt, color) { S.texts.push({ x, y, txt, color, t: 0 }); }
-
-function loseLife(x, y, reason) {
+function loseGear(x, y, reason) {
   if (!S.running) return;
-  S.lives--; S.combo = 0; S.shake = 0.35;
+  S.gears--; S.combo = 0; S.shake = 0.35;
   floatText(x, y - 30, reason, BAD);
   beep(160, 0.3, 'sawtooth', 0.05, 0.5);
-  if (S.lives <= 0) gameOver();
+  if (S.gears <= 0) endLevel(false);
 }
 
 // ---------- actions ----------
+const entryBlocked = e => S.tiles.some(o => o.edge === e && o.d < GAP);
 function release(forced = false) {
   if (!S.running || S.paused || !S.queue.length || S.reload > 0) return false;
-  S.tiles.push({ v: S.queue.shift(), edge: edges['src>J1'], d: DOOR.x - N.src.x, pop: 0.6, scrap: false });
+  const e = edges['src>' + N.src.out.to];
+  if (S.tiles.some(o => o.edge === e && o.d < DOOR.x - N.src.x + GAP)) return false;
+  const q = S.queue.shift();
+  S.tiles.push({ ...q, edge: e, d: DOOR.x - N.src.x, pop: 0.6, scrap: false });
   S.reload = RELOAD; S.released++;
   if (forced) { S.jams++; floatText(DOOR.x, DOOR.y - 44, 'jam! auto-sent', RECYC); beep(220, 0.15, 'square', 0.03, 0.7); }
   else beep(330, 0.07, 'triangle', 0.04, 1.5);
   return true;
 }
-function setRoute(dest) {
-  if (!S.running || S.paused) return;
-  const r = ROUTE[dest];
-  for (const j in r) if (N[j].state !== r[j]) { N[j].state = r[j]; N[j].pop = 1; }
-  if (dest !== 'BIN') N[dest].ping = 1;
-  S.routeSet++;
-  beep(dest === 'BIN' ? 300 : 380 + MAILS.indexOf(dest) * 60, 0.05, 'square', 0.025);
+function setRoute(target) {
+  if (!S.running || S.paused || !PRESET[target]) return;
+  const p = ['src', ...PRESET[target]];
+  for (let i = 0; i < p.length - 1; i++) {
+    const n = N[p[i]];
+    if (n.type === 'sw') { const s = n.outs.findIndex(o => o.to === p[i + 1]); if (n.state !== s) { n.state = s; n.pop = 1; } }
+  }
+  N[target].ping = 1;
+  beep(target.startsWith('M') ? 380 + MAILS.indexOf(target) * 60 : 300, 0.05, 'square', 0.025);
 }
-function flip(n, dir) {
-  n.state = (n.state + dir + n.outs.length) % n.outs.length; n.pop = 1;
-  beep(360, 0.05, 'square', 0.025);
-}
+function flip(n, dir) { n.state = (n.state + dir + n.outs.length) % n.outs.length; n.pop = 1; beep(360, 0.05, 'square', 0.025); }
+function toggleGate(n) { n.open = !n.open; n.pop = 1; beep(n.open ? 520 : 260, 0.06, 'square', 0.03); }
 
 // ---------- update ----------
-function arrive(tile, nodeId) {
-  const n = N[nodeId];
-  if (n.type === 'st') {
-    const before = tile.v;
-    tile.v = applyOp(tile.v, n.op, n.val); tile.passedStation = true;
-    if (isScrap(tile.v)) { tile.scrap = true; floatText(n.x, n.y - 44, `${before}${n.op}${n.val} = scrap`, BAD); }
-    n.pop = 1; tile.pop = 1;
-    beep(tile.scrap ? 200 : 440 + Math.min(tile.v, 60) * 8, 0.06, 'triangle', 0.03);
-    tile.edge = edges[edgeKey(nodeId, n.out)]; tile.d = 0;
-  } else if (n.type === 'sw') {
-    tile.edge = edges[edgeKey(nodeId, n.outs[n.state])]; tile.d = 0;
-  } else if (n.type === 'bin') {
-    tile.dead = true; n.pop = 1; S.recycled++; burst(n.x, n.y, RECYC, 6); beep(300, 0.08, 'square', 0.02, 0.6);
-  } else if (n.type === 'mail') {
-    tile.dead = true;
-    const idx = tile.scrap ? -1 : n.orders.findIndex(o => o.t === tile.v);
-    if (idx >= 0) {
-      const o = n.orders[idx];
-      S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo); S.delivered++;
-      const pts = 100 + Math.min(10, S.combo - 1) * 20 + Math.round(50 * o.left / o.max);
-      S.score += pts; n.flash = 1;
-      floatText(n.x, n.y - 46, '+' + pts + (S.combo > 1 ? '  combo x' + S.combo : ''), '#1f8a7a');
-      burst(n.x, n.y, GOOD, 16);
-      beep(660, 0.09, 'triangle', 0.05); setTimeout(() => beep(990, 0.12, 'triangle', 0.05), 80);
-      n.orders.splice(idx, 1);
-      if (!checkShift()) fillOrders(n.id);
-    } else {
-      n.bad = 1; S.combo = 0; S.score = Math.max(0, S.score - 25); S.returned++;
-      floatText(n.x, n.y - 46, (tile.scrap ? 'scrap' : tile.v + ' not wanted') + '  −25', BAD);
-      beep(180, 0.22, 'sawtooth', 0.04, 0.6);
+function passNode(t, id, over) {
+  const n = N[id];
+  const go = () => { t.edge = nextEdge(id); t.d = Math.max(0, over); };
+  if (n.type === 'sw' || n.type === 'gate') return go();
+  if (n.type === 'st' || n.type === 'half' || n.type === 'swap') {
+    if (t.kind === 'n' && !t.scrap) {
+      const before = t.v, r = stepValue(t.v, n);
+      if (r === null) { t.scrap = true; floatText(n.x, n.y - 44, `${before} ${nodeLabel(n)} = scrap`, BAD); beep(200, 0.08, 'triangle', 0.03); }
+      else { t.v = r; beep(440 + Math.min(r, 60) * 8, 0.06, 'triangle', 0.03); }
     }
+    n.pop = 1; t.pop = 1; return go();
+  }
+  if (n.type === 'add') {
+    n.pop = 1;
+    if (t.kind === 'bomb') { t.dead = true; burst(n.x, n.y, '#3b4442', 20); loseGear(n.x, n.y, 'BOOM!'); return; }
+    if (!n.held) { n.held = { v: t.v, kind: t.kind, scrap: t.scrap, gold: t.gold, order: t.order }; t.dead = true; beep(300, 0.06, 'triangle', 0.03); adderPlan(id); return; }
+    const h = n.held; n.held = null;
+    if (h.kind === 'bomb') { t.dead = true; burst(n.x, n.y, '#3b4442', 20); loseGear(n.x, n.y, 'BOOM!'); return; }
+    if (t.kind === 'wild' || h.kind === 'wild') { t.kind = 'wild'; }
+    else { t.v = t.v + h.v; t.scrap = t.scrap || h.scrap || isScrap(t.v); }
+    t.gold = t.gold || h.gold; t.pop = 1; t.merged = true;
+    floatText(n.x, n.y - 46, t.kind === 'wild' ? '?' : t.scrap ? 'scrap' : `${h.v} + ${t.v - h.v} = ${t.v}`, ADDC);
+    beep(520, 0.1, 'triangle', 0.04, 1.4);
+    return go();
+  }
+  t.dead = true;
+  if (n.type === 'bin') {
+    n.pop = 1; S.recycled++; burst(n.x, n.y, RECYC, 6); beep(300, 0.08, 'square', 0.02, 0.6);
+    if (t.kind === 'bomb') { S.score += 50; floatText(n.x, n.y - 40, 'defused +50', '#1f8a7a'); }
+    return;
+  }
+  // mailbox
+  if (t.kind === 'bomb') { burst(n.x, n.y, '#3b4442', 20); n.bad = 1; loseGear(n.x, n.y, 'BOOM!'); return; }
+  const o = t.scrap ? null : t.kind === 'wild' ? [...n.orders].sort((a, b) => a.left - b.left)[0] : n.orders.find(x => x.t === t.v);
+  if (o) {
+    S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo); S.delivered++; if (t.merged) S.sums++;
+    let pts = 100 + Math.min(10, S.combo - 1) * 15 + Math.round(50 * o.left / o.max);
+    if (t.gold) pts *= 2;
+    S.score += pts; n.flash = 1;
+    floatText(n.x, n.y - 46, '+' + pts + (t.gold ? ' ★' : '') + (S.combo > 1 ? '  combo x' + S.combo : ''), t.gold ? GOLD : '#1f8a7a');
+    burst(n.x, n.y, t.gold ? GOLD : GOOD, 16);
+    beep(660, 0.09, 'triangle', 0.05); setTimeout(() => beep(990, 0.12, 'triangle', 0.05), 80);
+    dropOrder(n, o);
+    if (S.delivered >= L.goal && S.sums >= (L.sums || 0)) endLevel(true); else fillOrders(n.id);
+  } else {
+    n.bad = 1; S.combo = 0; S.score = Math.max(0, S.score - 25); S.returned++;
+    floatText(n.x, n.y - 46, (t.scrap ? 'scrap' : t.v + ' not wanted') + '  −25', BAD);
+    beep(180, 0.22, 'sawtooth', 0.04, 0.6);
   }
 }
 
-function checkShift() {
-  const s = shift();
-  if (s <= S.lastShift) return false;
-  S.lastShift = s;
-  retool(s);
-  // fresh orders that fit the new stations; tiles still waiting in the factory are re-sorted too
-  for (const m of MAILS) { N[m].orders = []; fillOrders(m, true); }
-  S.queue = S.queue.map(() => makeValue());
-  let sub = 'Stations retooled. Belts run a little faster.';
-  if (s === 2) sub = 'Stations retooled: now with minus!';
-  else if (s === 3) sub = 'Multiplication arrives – and every mailbox takes two orders.';
-  if (S.lives < 5) { S.lives++; sub += '  +1 gear ⚙'; }
-  S.banner = { text: 'Shift ' + s, sub, t: 0 };
-  beep(523, 0.12, 'triangle', 0.05); setTimeout(() => beep(659, 0.12, 'triangle', 0.05), 110); setTimeout(() => beep(784, 0.18, 'triangle', 0.05), 220);
-  return true;
+function moveTiles(dt) {
+  const sp = L.speed;
+  const groups = new Map();
+  for (const t of S.tiles) { if (!groups.has(t.edge.key)) groups.set(t.edge.key, []); groups.get(t.edge.key).push(t); }
+  for (const [k, g] of groups) {
+    g.sort((a, b) => b.d - a.d);
+    let ahead = Infinity;
+    for (const t of g) {
+      t.pop = Math.max(0, t.pop - dt * 3);
+      let nd = Math.min(t.d + sp * dt, ahead - GAP);
+      const nb = N[t.edge.b];
+      if (nb.type === 'gate' && !nb.open) nd = Math.min(nd, t.edge.len - 20);
+      if (nd >= t.edge.len) {
+        const ne = ['mail', 'bin'].includes(nb.type) || (nb.type === 'add' && !nb.held) ? null : nextEdge(t.edge.b);
+        if (ne && entryBlocked(ne)) nd = t.edge.len;
+        else { passNode(t, t.edge.b, nd - t.edge.len); if (t.dead || t.edge.key !== k) { ahead = Infinity; continue; } }
+      }
+      t.d = Math.max(t.d, nd); ahead = t.d;
+    }
+  }
+  S.tiles = S.tiles.filter(t => !t.dead);
 }
 
 function update(dt) {
   S.time += dt;
-  const sp = speed();
-  S.beltOff = (S.beltOff + sp * dt) % 1000;
+  S.beltOff = (S.beltOff + L.speed * dt) % 1000;
   S.shake = Math.max(0, S.shake - dt);
-  if (S.banner) { S.banner.t += dt; if (S.banner.t > 4) S.banner = null; }
-
-  // factory: tiles keep arriving; at capacity the factory jams and sends on its own
   S.reload = Math.max(0, S.reload - dt);
   S.spawnT -= dt;
-  if (S.spawnT <= 0) { S.spawnT = spawnInterval(); S.queue.push(makeValue()); }
+  if (S.spawnT <= 0) { S.spawnT = spawnInterval(); const t = spawnTile(); if (t) S.queue.push(t); }
   if (S.queue.length > CAP) release(true);
-
-  for (const t of S.tiles) {
-    t.d += sp * dt; t.pop = Math.max(0, t.pop - dt * 3);
-    for (let g = 0; !t.dead && t.d >= t.edge.len && g < 4; g++) {
-      const over = t.d - t.edge.len;
-      arrive(t, t.edge.b);
-      if (!t.dead) t.d = over;
-    }
-  }
-  S.tiles = S.tiles.filter(t => !t.dead);
-
+  moveTiles(dt);
+  if (!S.running) return;
   for (const m of MAILS) {
     const n = N[m];
-    n.flash = Math.max(0, n.flash - dt * 2); n.bad = Math.max(0, n.bad - dt * 2); n.ping = Math.max(0, (n.ping || 0) - dt * 2.5);
-    for (const o of n.orders) { o.left -= dt; o.pop = Math.max(0, o.pop - dt * 3); }
-    const expired = n.orders.filter(o => o.left <= 0);
-    if (expired.length && S.running) {
-      n.orders = n.orders.filter(o => o.left > 0);
-      n.bad = 1; loseLife(n.x, n.y, 'order expired');
-      fillOrders(m);
+    n.flash = Math.max(0, n.flash - dt * 2); n.bad = Math.max(0, n.bad - dt * 2); n.ping = Math.max(0, n.ping - dt * 2.5);
+    for (const o of [...n.orders]) {
+      o.left -= dt; o.pop = Math.max(0, o.pop - dt * 3);
+      if (o.left <= 0 && S.running) { dropOrder(n, o); n.bad = 1; loseGear(n.x, n.y, 'order expired'); if (S.running) fillOrders(m); }
     }
   }
   for (const k in N) if (N[k].pop) N[k].pop = Math.max(0, N[k].pop - dt * 4);
+  flight = analyze();
   tickFx(dt);
 }
 function tickFx(dt) {
@@ -421,6 +660,9 @@ function tickFx(dt) {
 }
 
 // ---------- drawing ----------
+const DOOR = { x: 95 + 37, y: 359 };
+const FACTORY_BOX = { x: 95 - 68, y: 360 - 84, w: 136, h: 210 };
+
 function drawBackground() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const g = ctx.createLinearGradient(0, 0, innerWidth, 0);
@@ -436,9 +678,7 @@ function drawBackground() {
     ctx.stroke();
   }
 }
-
-function isActiveEdge(e) { const A = N[e.a]; return A.type !== 'sw' || A.outs[A.state] === e.b; }
-
+function isActiveEdge(e) { const A = N[e.a]; return A.type !== 'sw' || A.outs[A.state].to === e.b; }
 function drawBelts() {
   ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
   ctx.save(); ctx.translate(0, 5);
@@ -451,64 +691,62 @@ function drawBelts() {
     ctx.strokeStyle = act ? '#cddcd8' : '#bccbc7'; ctx.lineWidth = 28; poly(e.pts); ctx.stroke();
     ctx.setLineDash([3, 9]); ctx.lineDashOffset = -S.beltOff;
     ctx.strokeStyle = 'rgba(70,110,104,.35)'; ctx.lineWidth = 24; poly(e.pts); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
 }
 
-function drawTile(x, y, v, scrap, pop, s = 1) {
-  const sz = (26 + pop * 8) * s;
-  if (!spr(scrap ? 'tile_scrap' : 'tile', x, y, sz / 26)) {
-    ctx.fillStyle = 'rgba(30,60,55,.18)'; rr(x - sz / 2 + 1, y - sz / 2 + 3, sz, sz, 6 * s); ctx.fill();
-    ctx.fillStyle = scrap ? '#f3d6d0' : '#eef6f3'; rr(x - sz / 2, y - sz / 2, sz, sz, 6 * s); ctx.fill();
-    ctx.lineWidth = 2.5 * s; ctx.strokeStyle = scrap ? '#b65050' : '#2f6f68'; ctx.stroke();
+function drawTile(x, y, t, pop = 0, s = 1) {
+  const sz = (26 + pop * 8) * s, k = sz / 26;
+  const sprite = t.kind === 'bomb' ? 'tile_bomb' : t.scrap ? 'tile_scrap' : t.gold ? 'tile_gold' : 'tile';
+  if (!spr(sprite, x, y, k)) {
+    ctx.fillStyle = t.kind === 'bomb' ? '#3b4442' : t.scrap ? '#f3d6d0' : t.gold ? '#f6d77a' : '#eef6f3';
+    rr(x - sz / 2, y - sz / 2, sz, sz, 6 * s); ctx.fill();
+    ctx.lineWidth = 2.5 * s; ctx.strokeStyle = t.scrap ? '#b65050' : '#2f6f68'; ctx.stroke();
   }
-  ctx.fillStyle = scrap ? '#b65050' : '#24524d';
-  ctx.font = `600 ${Math.round((v >= 10 || scrap ? 14 : 16) * sz / 26)}px Fredoka, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(scrap ? '✕' : v, x, y + 0.5);
+  if (t.kind === 'bomb') {
+    ctx.fillStyle = '#1b2120'; circ(x, y + 1.5 * k, 6.5 * k); ctx.fill();
+    ctx.strokeStyle = '#c9a36a'; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(x + 3 * k, y - 4 * k); ctx.quadraticCurveTo(x + 6 * k, y - 9 * k, x + 8 * k, y - 7 * k); ctx.stroke();
+    ctx.fillStyle = Math.sin(S.time * 20) > 0 ? '#ffcf4a' : '#ff7a3a'; circ(x + 8.5 * k, y - 7.5 * k, 2 * k); ctx.fill();
+    return;
+  }
+  if (t.kind === 'wild') { ctx.fillStyle = WILD; ctx.font = `700 ${Math.round(17 * k)}px Fredoka, sans-serif`; ctx.fillText('?', x, y + 0.5); return; }
+  ctx.fillStyle = t.scrap ? '#b65050' : t.gold ? '#6e5110' : '#24524d';
+  ctx.font = `600 ${Math.round((t.v >= 10 || t.scrap ? 14 : 16) * k)}px Fredoka, sans-serif`;
+  ctx.fillText(t.scrap ? '✕' : t.v, x, y + 0.5);
 }
-
+const BADGE = { ok: [GOOD, '✓'], bin: [RECYC, '♻'], dup: [DUP, '2'], bad: [BAD, '✕'], add: [ADDC, '+'], boom: [BAD, '!'] };
 function badge(x, y, kind) {
-  const col = kind === 'ok' ? GOOD : kind === 'bin' ? RECYC : kind === 'dup' ? DUP : BAD;
+  const [col, ch] = BADGE[kind] || BADGE.bad;
   ctx.fillStyle = '#fff'; circ(x, y, 8); ctx.fill();
   ctx.fillStyle = col; circ(x, y, 6.5); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = '700 10px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(kind === 'ok' ? '✓' : kind === 'bin' ? '♻' : kind === 'dup' ? '2' : '✕', x, y + 0.5);
+  ctx.fillText(ch, x, y + 0.5);
 }
 
-let flight = { info: [], claimed: new Set() };
+let flight = { info: [], claimed: new Set(), vh: {} };
 function drawTiles() {
   for (const i of flight.info) {
     const p = pointOn(i.t.edge, i.t.d);
-    drawTile(p.x, p.y, i.t.v, i.t.scrap, i.t.pop);
+    drawTile(p.x, p.y, i.t, i.t.pop);
     badge(p.x + 13, p.y - 13, i.kind);
   }
 }
 
-// Dotted route for the tile waiting on the chute – where would it go if sent right now?
-let preview = null;
-function previewKind(pr) {
-  const n = N[pr.end];
-  if (n.type === 'bin') return 'bin';
-  if (pr.scrap) return 'bad';
-  if (n.orders.some(o => o.t === pr.v && !flight.claimed.has(o))) return 'ok';
-  return n.orders.some(o => o.t === pr.v) ? 'dup' : 'bad';
-}
-function drawPreview() {
-  preview = null;
-  if (!S.running || !S.queue.length || S.reload > 0) return;
-  const pr = predict(S.queue[0], false, 'J1');
-  pr.kind = previewKind(pr);
-  preview = pr;
-  const ids = ['src', ...pr.path];
-  const col = pr.kind === 'ok' ? GOOD : pr.kind === 'bin' ? RECYC : pr.kind === 'dup' ? DUP : BAD;
-  ctx.save();
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+// dotted line: where the waiting tile goes with the current switch settings
+let chute = null; // tile on the chute (or null)
+function drawRoute() {
+  if (!S.running || !chute) return;
+  const p = ['src', ...currentPath(N.src.out.to)];
+  const end = N[p[p.length - 1]];
+  const r = end.type === 'bin' ? { kind: 'bin' } : resultFor(end.id, chute) || { kind: 'bad' };
+  const col = (BADGE[r.kind] || BADGE.bad)[0];
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.setLineDash([2, 10]); ctx.lineDashOffset = -S.time * 30;
   ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.globalAlpha = 0.7;
-  for (let i = 0; i < ids.length - 1; i++) { poly(edges[edgeKey(ids[i], ids[i + 1])].pts); ctx.stroke(); }
+  for (let i = 0; i < p.length - 1; i++) { poly(edges[edgeKey(p[i], p[i + 1])].pts); ctx.stroke(); }
   ctx.restore();
+  chute.routeKind = r.kind;
 }
 
 function cylinder(x, y, r, top, side, stroke) {
@@ -519,7 +757,6 @@ function cylinder(x, y, r, top, side, stroke) {
   ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x - r, y + 9); ctx.moveTo(x + r, y); ctx.lineTo(x + r, y + 9); ctx.stroke();
   ctx.fillStyle = top; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 }
-
 let hover = null;
 function hoverGlow(x, y, r) { ctx.fillStyle = 'rgba(42,157,143,.18)'; circ(x, y + 4, r); ctx.fill(); }
 function keycap(x, y, k, active) {
@@ -528,51 +765,80 @@ function keycap(x, y, k, active) {
   ctx.fillStyle = active ? '#fff' : '#2f5f5a'; ctx.font = '700 12px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(k, x, y + 0.5);
 }
+function chip(x, y, r) {
+  const [col] = BADGE[r.kind] || BADGE.bad;
+  const label = r.kind === 'boom' ? '💥 boom' : '→ ' + r.label + (r.kind === 'ok' ? ' ✓' : r.kind === 'dup' ? ' (taken)' : '');
+  ctx.font = '700 13px Fredoka, sans-serif';
+  const w = ctx.measureText(label).width + 18;
+  ctx.fillStyle = r.kind === 'ok' ? GOOD : 'rgba(255,253,247,.95)'; rr(x - w / 2, y - 11, w, 22, 11); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = r.kind === 'ok' ? '#fff' : col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y + 0.5);
+}
+const routeEnd = () => currentPath(N.src.out.to).slice(-1)[0];
 
-function drawStation(n) {
+function drawStationNode(n) {
   const r = 30 + n.pop * 4;
-  if (!spr('station', n.x, n.y, r / 30)) {
-    cylinder(n.x, n.y, r, '#eef5f3', '#a9c3be', '#3a6b65');
-    ctx.fillStyle = '#d6e6e2'; ctx.beginPath(); ctx.ellipse(n.x, n.y, r * 0.66, r * 0.52, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  }
-  const fc = OP_COLOR[n.op];
+  if (!spr('station', n.x, n.y, r / 30)) cylinder(n.x, n.y, r, '#eef5f3', '#a9c3be', '#3a6b65');
+  const fc = nodeColor(n);
   ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(n.x + 16, n.y - 12); ctx.lineTo(n.x + 16, n.y - 50); ctx.stroke();
   const wave = Math.sin(S.time * 4 + n.x) * 2;
   ctx.fillStyle = fc; ctx.beginPath(); ctx.moveTo(n.x + 16, n.y - 50); ctx.lineTo(n.x + 36, n.y - 46 + wave); ctx.lineTo(n.x + 16, n.y - 38); ctx.closePath(); ctx.fill();
   ctx.fillStyle = fc; ctx.font = '700 21px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(n.op + n.val, n.x, n.y + 1);
+  ctx.fillText(nodeLabel(n), n.x, n.y + 1);
 }
-
 function drawSwitch(n) {
-  const r = 24;
-  if (hover === n) hoverGlow(n.x, n.y, r + 14);
-  if (!spr('switch', n.x, n.y, 1 + (n.pop || 0) * 0.12)) cylinder(n.x, n.y, r, '#f7f1e2', '#cdbf9f', '#6b6250');
-  const e = edges[edgeKey(n.id, n.outs[n.state])];
+  if (hover === n) hoverGlow(n.x, n.y, 38);
+  if (!spr('switch', n.x, n.y, 1 + n.pop * 0.12)) cylinder(n.x, n.y, 24, '#f7f1e2', '#cdbf9f', '#6b6250');
+  const e = edges[edgeKey(n.id, n.outs[n.state].to)];
   const dx = e.pts[1].x - e.pts[0].x, dy = e.pts[1].y - e.pts[0].y;
   ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(Math.atan2(dy, dx));
   ctx.fillStyle = '#1d6b62';
   ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(1, -10); ctx.lineTo(1, -4); ctx.lineTo(-12, -4); ctx.lineTo(-12, 4); ctx.lineTo(1, 4); ctx.lineTo(1, 10); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
-
 function drawBin(n) {
   if (hover === n) hoverGlow(n.x, n.y, 46);
-  if (!spr('recycler', n.x, n.y, 1 + (n.pop || 0) * 0.1)) {
-    cylinder(n.x, n.y, 32, '#f6f1e6', '#c9c0ad', '#6b6250');
-    ctx.strokeStyle = RECYC; ctx.lineWidth = 6; ctx.lineCap = 'round';
-    const s = 13;
-    ctx.beginPath(); ctx.moveTo(n.x - s, n.y - s * 0.8); ctx.lineTo(n.x + s, n.y + s * 0.8); ctx.moveTo(n.x + s, n.y - s * 0.8); ctx.lineTo(n.x - s, n.y + s * 0.8); ctx.stroke();
-    ctx.lineCap = 'butt';
-  }
-  ctx.fillStyle = '#8a7f69'; ctx.font = '600 12px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('recycle', n.x, n.y + 46);
-  keycap(n.x - 44, n.y - 26, '0', N.J1.state === 1);
+  if (!spr('recycler', n.x, n.y, 1 + n.pop * 0.1)) cylinder(n.x, n.y, 32, '#f6f1e6', '#c9c0ad', '#6b6250');
+  const fitsNowhere = S.running && chute && chute.kind !== 'bomb' && !MAILS.some(m => { const r = resultFor(m, chute); return r && (r.kind === 'ok' || r.kind === 'add'); });
+  if (S.running && chute && chute.kind === 'bomb') chip(n.x, n.y + 47, { kind: 'ok', label: 'defuse' });
+  else if (fitsNowhere) chip(n.x, n.y + 47, { kind: 'bin', label: 'recycle' });
+  else { ctx.fillStyle = '#8a7f69'; ctx.font = '600 12px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('recycle', n.x, n.y + 46); }
+  keycap(n.x - 44, n.y - 26, '0', routeEnd() === n.id);
 }
-
+function drawAdder(n) {
+  if (hover === n || n.ping) hoverGlow(n.x, n.y, 52);
+  if (!spr('adder', n.x, n.y, 1 + n.pop * 0.06)) {
+    ctx.fillStyle = '#a9c3be'; rr(n.x - 36, n.y - 26, 72, 56, 14); ctx.fill(); ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#2f4f4b'; rr(n.x - 17, n.y - 15, 34, 30, 6); ctx.fill();
+  }
+  if (n.held) drawTile(n.x, n.y - 1, n.held, 0, 0.95);
+  else { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '700 22px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+', n.x, n.y); }
+  ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = ADDC; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(n.held ? (n.held.kind === 'n' ? `holding ${n.held.v}` : 'holding ?') : 'adder', n.x - 50, n.y + 2);
+  ctx.font = '600 11px Fredoka, sans-serif';
+  ctx.fillText(n.held ? 'next tile merges' : 'empty', n.x - 50, n.y + 18);
+  keycap(n.x - 50, n.y - 30, 'A', routeEnd() === n.id);
+}
+function drawGate(n) {
+  const e = Object.values(edges).find(e => e.b === n.id);
+  const last = e.pts[e.pts.length - 2], dir = Math.abs(last.x - n.x) > Math.abs(last.y - n.y) ? 'h' : 'v';
+  if (hover === n) hoverGlow(n.x, n.y, 30);
+  // post
+  const px = dir === 'h' ? n.x : n.x + 22, py = dir === 'h' ? n.y - 22 : n.y;
+  ctx.fillStyle = 'rgba(30,60,55,.18)'; circ(px + 2, py + 4, 9); ctx.fill();
+  ctx.fillStyle = '#e9efed'; circ(px, py, 9); ctx.fill(); ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = n.open ? GOOD : BAD; circ(px, py, 5); ctx.fill();
+  // arm across the belt when closed, raised when open
+  ctx.save(); ctx.translate(px, py);
+  const ang = dir === 'h' ? (n.open ? -Math.PI * 0.85 : Math.PI / 2) : (n.open ? -Math.PI * 0.35 : Math.PI);
+  ctx.rotate(ang);
+  ctx.fillStyle = n.open ? '#cfdcd9' : BAD; rr(0, -3.5, 42, 7, 3.5); ctx.fill();
+  ctx.fillStyle = '#fff'; for (let i = 0; i < 3; i++) ctx.fillRect(10 + i * 11, -3.5, 5, 7);
+  ctx.restore();
+}
 function orderBubble(o, bx, by, r, n) {
-  const frac = Math.max(0, o.left / o.max);
-  const rad = r * (1 + o.pop * 0.25);
+  const frac = Math.max(0, o.left / o.max), rad = r * (1 + o.pop * 0.25);
   ctx.fillStyle = 'rgba(30,60,55,.15)'; circ(bx + 2, by + 3, rad); ctx.fill();
   ctx.fillStyle = n.bad ? '#f7dcd6' : n.flash ? '#d9f3ec' : '#fffdf7'; circ(bx, by, rad); ctx.fill();
   ctx.strokeStyle = '#d6e2df'; ctx.lineWidth = 4.5; circ(bx, by, rad); ctx.stroke();
@@ -583,143 +849,74 @@ function orderBubble(o, bx, by, r, n) {
   ctx.fillText(o.t, bx, by + 1);
   if (flight.claimed.has(o)) { ctx.fillStyle = GOOD; circ(bx + rad * 0.75, by - rad * 0.75, 6); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '700 9px Fredoka, sans-serif'; ctx.fillText('✓', bx + rad * 0.75, by - rad * 0.75 + 0.5); }
 }
-
 function drawMail(n) {
-  const sh = n.bad ? Math.sin(S.time * 60) * 4 * n.bad : 0;
-  const x = n.x + sh, y = n.y;
-  const routed = predict(0, false, 'J1').end === n.id;  // current switch route ends here
-  if (hover === n || n.ping) hoverGlow(x, y, 44 + (n.ping || 0) * 8);
-  if (preview && preview.end === n.id) {
-    ctx.fillStyle = preview.kind === 'ok' ? 'rgba(42,157,143,.22)' : 'rgba(208,86,79,.14)'; circ(x, y + 4, 46); ctx.fill();
-  }
+  const sh = n.bad ? Math.sin(S.time * 60) * 4 * n.bad : 0, x = n.x + sh, y = n.y;
+  if (hover === n || n.ping) hoverGlow(x, y, 44 + n.ping * 8);
   if (spr('mailbox', x, y, 1 + n.flash * 0.08)) {
     if (n.flash) { ctx.fillStyle = `rgba(191,232,223,${n.flash * 0.8})`; ctx.beginPath(); ctx.ellipse(x, y, 30, 24, 0, 0, Math.PI * 2); ctx.fill(); }
-  } else {
-    cylinder(x, y, 32, '#eef5f3', '#a9c3be', '#3a6b65');
-    ctx.fillStyle = n.flash ? '#bfe8df' : '#2a8c80'; rr(x - 17, y - 11, 34, 22, 3); ctx.fill();
-  }
-  keycap(x - 42, y - 30, n.key, routed);
-  // orders
-  const os = n.orders;
-  if (os.length === 1) orderBubble(os[0], x + 72, y, 29, n);
-  else os.forEach((o, i) => orderBubble(o, x + 70, y + (i ? 24 : -24), 21, n));
-  // what the waiting tile would arrive as
-  if (preview && preview.end === n.id) {
-    const ox = x, oy = y - 52;
-    const label = preview.scrap ? 'scrap ✕' : preview.kind === 'ok' ? preview.v + ' ✓' : preview.kind === 'dup' ? preview.v + ' taken' : preview.v + ' ✕';
-    ctx.font = '700 14px Fredoka, sans-serif';
-    const bw = ctx.measureText(label).width + 22;
-    ctx.fillStyle = preview.kind === 'ok' ? GOOD : preview.kind === 'dup' ? DUP : BAD; rr(ox - bw / 2, oy - 12, bw, 24, 12); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, ox, oy + 1);
-  }
+  } else { cylinder(x, y, 32, '#eef5f3', '#a9c3be', '#3a6b65'); ctx.fillStyle = '#2a8c80'; rr(x - 17, y - 11, 34, 22, 3); ctx.fill(); }
+  keycap(x - 42, y - 30, n.key, routeEnd() === n.id);
+  for (const o of n.orders) orderBubble(o, x + 72, y, 29, n);
+  if (S.running && chute) { const r = resultFor(n.id, chute); if (r) chip(x, y + 47, r); }
 }
-
 function drawFactory(n) {
   const x = n.x, y = n.y, hv = hover === 'factory';
   if (hv) { ctx.fillStyle = 'rgba(42,157,143,.16)'; rr(FACTORY_BOX.x - 6, FACTORY_BOX.y - 6, FACTORY_BOX.w + 12, 166, 18); ctx.fill(); }
   if (!spr('factory', x, y)) {
-    ctx.fillStyle = '#e9efed'; ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2.5;
-    rr(x - 56, y - 46, 104, 90, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e9efed'; ctx.strokeStyle = '#3a6b65'; ctx.lineWidth = 2.5; rr(x - 56, y - 46, 104, 90, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#2f4f4b'; rr(DOOR.x - 16, DOOR.y - 16, 32, 32, 5); ctx.fill();
   }
   if (!S.running) return;
-  const ready = S.queue.length > 0 && S.reload <= 0;
-  if (ready) {
-    drawTile(DOOR.x, DOOR.y - 2 + Math.sin(S.time * 4) * 1.5, S.queue[0], false, 0, 1.15);
-    if (preview) badge(DOOR.x + 15, DOOR.y - 17, preview.kind);
-  }
-  // send button
+  if (chute) { drawTile(DOOR.x, DOOR.y - 2 + Math.sin(S.time * 4) * 1.5, chute, 0, 1.15); if (chute.routeKind) badge(DOOR.x + 15, DOOR.y - 17, chute.routeKind); }
   const by = y + 96;
   ctx.fillStyle = 'rgba(30,60,55,.18)'; rr(x - 44, by - 12, 88, 28, 10); ctx.fill();
-  ctx.fillStyle = ready ? (hv ? '#145a52' : '#1d6b62') : '#9db8b3'; rr(x - 44, by - 14, 88, 28, 10); ctx.fill();
+  ctx.fillStyle = chute ? (hv ? '#145a52' : '#1d6b62') : '#9db8b3'; rr(x - 44, by - 14, 88, 28, 10); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = '700 15px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(S.queue.length ? 'SEND ▶' : 'empty', x, by + 1);
-  ctx.fillStyle = '#5b7f79'; ctx.font = '500 11px Fredoka, sans-serif';
-  ctx.fillText('space', x, by + 25);
-  // queue: tiles waiting behind the one on the chute
+  ctx.fillStyle = '#5b7f79'; ctx.font = '500 11px Fredoka, sans-serif'; ctx.fillText('space', x, by + 25);
   const qy = by + 62, full = S.queue.length >= CAP;
-  const nextIn = 1 - S.spawnT / spawnInterval();
   ctx.fillStyle = full ? BAD : '#5b7f79'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left';
   ctx.fillText(full ? 'FULL – next one jams!' : `queue ${S.queue.length}/${CAP}`, x - 70, qy - 22);
   for (let i = 1; i < CAP; i++) {
     const tx = x - 58 + (i - 1) * 29;
-    if (i < S.queue.length) drawTile(tx, qy, S.queue[i], false, 0, 0.9);
-    else {
-      ctx.strokeStyle = full ? BAD : '#b9cbc7'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
-      rr(tx - 11, qy - 11, 22, 22, 5); ctx.stroke(); ctx.setLineDash([]);
-    }
+    if (i < S.queue.length) drawTile(tx, qy, S.queue[i], 0, 0.9);
+    else { ctx.strokeStyle = full ? BAD : '#b9cbc7'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); rr(tx - 11, qy - 11, 22, 22, 5); ctx.stroke(); ctx.setLineDash([]); }
   }
-  // arrival timer for the next tile
+  const nextIn = 1 - S.spawnT / spawnInterval();
   ctx.fillStyle = '#d6e2df'; rr(x - 70, qy + 18, 140, 5, 2.5); ctx.fill();
   ctx.fillStyle = full ? BAD : '#8fb0aa'; rr(x - 70, qy + 18, Math.max(5, 140 * nextIn), 5, 2.5); ctx.fill();
-  if (S.released === 0 && ready) {
-    ctx.globalAlpha = 0.6 + Math.sin(S.time * 5) * 0.4; ctx.fillStyle = '#1d6b62'; ctx.font = '700 15px Fredoka, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('press 1–4, then Space ▼', x + 10, y - 104); ctx.globalAlpha = 1;
-  }
 }
-
 function drawHUD() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  ctx.font = '700 46px Fredoka, sans-serif';
-  ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 10; ctx.strokeText('Zahlenwerk', 26, 64);
-  ctx.fillStyle = 'rgba(29,107,98,.25)'; ctx.fillText('Zahlenwerk', 26, 69);
-  ctx.fillStyle = '#1d6b62'; ctx.fillText('Zahlenwerk', 26, 64);
-  const box = (x, w, label) => {
-    ctx.fillStyle = 'rgba(255,253,247,.9)'; rr(x, 84, w, 46, 10); ctx.fill();
-    ctx.strokeStyle = '#9dbab4'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#5b7f79'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, x + 10, 99);
+  ctx.font = '700 40px Fredoka, sans-serif';
+  ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 9; ctx.strokeText('Zahlenwerk', 26, 56);
+  ctx.fillStyle = 'rgba(29,107,98,.25)'; ctx.fillText('Zahlenwerk', 26, 61);
+  ctx.fillStyle = '#1d6b62'; ctx.fillText('Zahlenwerk', 26, 56);
+  ctx.font = '600 13px Fredoka, sans-serif'; ctx.fillStyle = '#5b7f79'; ctx.fillText(`Level ${L.idx + 1} · ${L.name}`, 250, 52);
+  // compact column on the left (belts never run there)
+  const box = (x, y, w, label) => {
+    ctx.fillStyle = 'rgba(255,253,247,.9)'; rr(x, y, w, 46, 10); ctx.fill(); ctx.strokeStyle = '#9dbab4'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#5b7f79'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, x + 10, y + 15);
   };
-  const val = (x, v) => { ctx.fillStyle = '#1d6b62'; ctx.font = '700 20px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(v, x + 10, 122); };
-  box(26, 104, 'SCORE'); val(26, S.score);
-  box(138, 128, 'SHIFT'); val(138, shift());
-  const inShift = S.delivered % PER_SHIFT;
-  for (let i = 0; i < PER_SHIFT; i++) { ctx.fillStyle = i < inShift ? GOOD : '#d6e2df'; circ(170 + i * 11, 116, 4); ctx.fill(); }
-  box(274, 70, 'COMBO'); val(274, S.combo > 1 ? 'x' + S.combo : '–');
-  box(352, 130, 'GEARS');
-  for (let i = 0; i < 5; i++) drawGear(370 + i * 22, 116, 8, i < S.lives ? GOOD : '#d6dedb', i < S.lives ? S.time : 0);
+  const val = (x, y, v, col = '#1d6b62') => { ctx.fillStyle = col; ctx.font = '700 20px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(v, x + 10, y + 38); };
+  box(26, 74, 132, 'ORDERS'); val(26, 74, `${S.delivered}/${L.goal}`);
+  ctx.fillStyle = '#d6e2df'; rr(86, 101, 62, 7, 3.5); ctx.fill();
+  ctx.fillStyle = GOOD; rr(86, 101, Math.max(7, 62 * Math.min(1, S.delivered / L.goal)), 7, 3.5); ctx.fill();
+  box(166, 74, 96, 'SCORE'); val(166, 74, S.score);
+  box(26, 128, 70, 'COMBO'); val(26, 128, S.combo > 1 ? 'x' + S.combo : '–');
+  box(104, 128, 86, 'GEARS');
+  for (let i = 0; i < L.gears; i++) drawGear(122 + i * 22, 160, 8, i < S.gears ? GOOD : '#d6dedb', i < S.gears ? S.time : 0);
+  if (L.sums) { box(198, 128, 64, 'SUMS'); val(198, 128, `${Math.min(S.sums, L.sums)}/${L.sums}`, S.sums >= L.sums ? GOOD : '#1d6b62'); }
+  box(26, 182, 132, 'TIME · PAR ' + fmtTime(L.par)); val(26, 182, fmtTime(S.time), S.time <= L.par ? '#1d6b62' : BAD);
 }
 function drawGear(x, y, r, c, a) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = c;
-  ctx.beginPath();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = c; ctx.beginPath();
   for (let i = 0; i < 16; i++) { const ang = i / 16 * Math.PI * 2, rad = i % 2 ? r : r + 3; ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad); }
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#fffdf7'; circ(0, 0, r * 0.4); ctx.fill();
-  ctx.restore();
+  ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fffdf7'; circ(0, 0, r * 0.4); ctx.fill(); ctx.restore();
 }
-
-function drawTip() {
-  if (!S.running || shift() > 1) return;
-  let tip;
-  if (S.released === 0) tip = 'Which mailbox fits the waiting tile? (e.g. 5 through +3 → 8). Press its number 1–4, then Space.';
-  else if (S.released < 4) tip = 'A switch only matters when a tile reaches it – set the next route once the previous tile has passed.';
-  else tip = 'Tiles that fit nowhere: press 0 for the recycler. Keep the queue short – at 6 the factory jams.';
-  ctx.font = '600 15px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = ctx.measureText(tip).width + 28;
-  ctx.fillStyle = 'rgba(255,253,247,.92)'; rr(600 - w / 2, 690, w, 28, 14); ctx.fill();
-  ctx.strokeStyle = '#9dbab4'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = '#2f5f5a'; ctx.fillText(tip, 600, 704);
-}
-
-function drawBanner() {
-  const b = S.banner; if (!b || !S.running) return;
-  ctx.globalAlpha = Math.max(0, Math.min(1, b.t * 4, (4 - b.t) * 2));
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const y = 350 - (1 - Math.min(1, b.t * 4)) * 14, cx = 820;
-  ctx.font = '600 14px Fredoka, sans-serif';
-  const w = Math.max(240, ctx.measureText(b.sub).width + 40);
-  ctx.fillStyle = 'rgba(255,253,247,.96)'; rr(cx - w / 2, y - 34, w, 66, 16); ctx.fill();
-  ctx.strokeStyle = '#1d6b62'; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.fillStyle = '#1d6b62'; ctx.font = '700 24px Fredoka, sans-serif'; ctx.fillText(b.text, cx, y - 10);
-  ctx.fillStyle = '#2f5f5a'; ctx.font = '600 14px Fredoka, sans-serif'; ctx.fillText(b.sub, cx, y + 15);
-  ctx.globalAlpha = 1;
-}
-
 function drawFx() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (const f of S.fx) {
-    ctx.globalAlpha = 1 - f.t / f.life; ctx.fillStyle = f.color; ctx.font = '700 14px Fredoka, sans-serif';
-    ctx.fillText(f.g, f.x, f.y);
-  }
+  for (const f of S.fx) { ctx.globalAlpha = 1 - f.t / f.life; ctx.fillStyle = f.color; ctx.font = '700 14px Fredoka, sans-serif'; ctx.fillText(f.g, f.x, f.y); }
   for (const t of S.texts) {
     ctx.globalAlpha = Math.max(0, Math.min(1, 2 * (1 - t.t / 1.6)));
     ctx.font = '700 18px Fredoka, sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.lineJoin = 'round';
@@ -727,26 +924,26 @@ function drawFx() {
   }
   ctx.globalAlpha = 1;
 }
-
 function draw() {
   drawBackground();
   const sx = S.shake ? (Math.random() - 0.5) * 8 * S.shake : 0, sy = S.shake ? (Math.random() - 0.5) * 8 * S.shake : 0;
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (offX + sx), dpr * (offY + sy));
   flight = analyze();
+  chute = S.queue.length && S.reload <= 0 ? S.queue[0] : null;
   drawBelts();
-  drawPreview();
+  drawRoute();
   drawTiles();
   for (const k in N) {
     const n = N[k];
-    if (n.type === 'st') drawStation(n);
+    if (n.type === 'st' || n.type === 'half' || n.type === 'swap') drawStationNode(n);
     else if (n.type === 'sw') drawSwitch(n);
     else if (n.type === 'bin') drawBin(n);
     else if (n.type === 'mail') drawMail(n);
+    else if (n.type === 'add') drawAdder(n);
+    else if (n.type === 'gate') drawGate(n);
     else if (n.type === 'src') drawFactory(n);
   }
   drawHUD();
-  drawTip();
-  drawBanner();
   drawFx();
 }
 
@@ -756,9 +953,10 @@ function hit(p) {
   const f = FACTORY_BOX;
   if (p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h) return 'factory';
   for (const k in N) {
-    const n = N[k];
-    if (n.type === 'sw' && Math.hypot(p.x - n.x, p.y - n.y) < 38) return n;
-    if (n.type === 'bin' && Math.hypot(p.x - n.x, p.y - n.y) < 40) return n;
+    const n = N[k], d = Math.hypot(p.x - n.x, p.y - n.y);
+    if (n.type === 'sw' && d < 38) return n;
+    if (n.type === 'gate' && d < 34) return n;
+    if ((n.type === 'bin' || n.type === 'add') && d < 44) return n;
     if (n.type === 'mail' && p.x > n.x - 48 && p.x < n.x + 104 && Math.abs(p.y - n.y) < 52) return n;
   }
   return null;
@@ -773,47 +971,83 @@ cv.addEventListener('pointerdown', e => {
   const n = hit(toGame(e)); if (!n) return;
   if (n === 'factory') release();
   else if (n.type === 'sw') flip(n, e.button === 2 ? -1 : 1);
-  else if (n.type === 'bin') setRoute('BIN');
-  else if (n.type === 'mail') setRoute(n.id);
+  else if (n.type === 'gate') toggleGate(n);
+  else setRoute(n.id);
 });
 
 const $ = id => document.getElementById(id);
-function setPause(p) {
-  if (!S || !S.running) return;
-  S.paused = p; $('pauseScreen').classList.toggle('hidden', !p);
-}
-const ROUTE_KEYS = { Digit1: 'M1', Digit2: 'M2', Digit3: 'M3', Digit4: 'M4', Numpad1: 'M1', Numpad2: 'M2', Numpad3: 'M3', Numpad4: 'M4',
-                     Digit0: 'BIN', Numpad0: 'BIN', KeyX: 'BIN', Backquote: 'BIN' };
+const overlays = ['startScreen', 'introScreen', 'endScreen', 'pauseScreen'];
+function show(id) { for (const o of overlays) $(o).classList.toggle('hidden', o !== id); }
+const visible = id => !$(id).classList.contains('hidden');
+function setPause(p) { if (!S || !S.running) return; S.paused = p; show(p ? 'pauseScreen' : null); }
+
 addEventListener('keydown', e => {
   if (!S) return;
   if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    if (!S.running) {
-      const ov = !$('startScreen').classList.contains('hidden') || !$('overScreen').classList.contains('hidden');
-      if (ov) start();
-      return;
-    }
+    if (visible('introScreen')) return begin();
+    if (visible('endScreen')) return (S.won && L.idx < LEVELS.length - 1 ? openLevel(L.idx + 1) : openLevel(L.idx));
+    if (visible('startScreen')) return openLevel(Math.max(0, LEVELS.findIndex((_, i) => !progress[i])));
+    if (!S.running) return;
     if (S.paused) setPause(false); else release();
-  } else if (e.code === 'KeyP' || e.code === 'Escape') setPause(!S.paused);
-  else if (ROUTE_KEYS[e.code]) setRoute(ROUTE_KEYS[e.code]);
+    return;
+  }
+  if (!S.running) return;
+  if (e.code === 'KeyP' || e.code === 'Escape') return setPause(!S.paused);
+  if (S.paused) return;
+  const d = /^(Digit|Numpad)([0-9])$/.exec(e.code);
+  if (d) { const k = +d[2]; if (k === 0) { const b = Object.keys(N).find(id => N[id].type === 'bin'); if (b) setRoute(b); } else if (MAILS[k - 1]) setRoute(MAILS[k - 1]); return; }
+  if (e.code === 'KeyX') { const b = Object.keys(N).find(id => N[id].type === 'bin'); if (b) setRoute(b); }
+  if (e.code === 'KeyA' && ADDERS.length) setRoute(ADDERS[0]);
+  if (e.code === 'KeyG' && GATES.length) { const anyOpen = GATES.some(g => N[g].open); GATES.forEach(g => { if (N[g].open === anyOpen) toggleGate(N[g]); }); }
 });
 addEventListener('blur', () => setPause(true));
 $('resumeBtn').onclick = () => setPause(false);
 
-function start() { newGame(); $('startScreen').classList.add('hidden'); $('overScreen').classList.add('hidden'); beep(440, 0.1, 'triangle', 0.04); }
-$('startBtn').onclick = start; $('againBtn').onclick = start;
-
-function gameOver() {
-  S.running = false; hover = null;
-  const best = Math.max(loadBest(), S.score); saveBest(best);
-  $('finalScore').textContent = S.score;
-  $('finalStats').textContent = `${S.delivered} orders filled · reached shift ${shift()} · best combo x${S.bestCombo} · ${S.returned} sent back · ${S.jams} jams`;
-  $('bestLine').textContent = S.score >= best && S.score > 0 ? 'New personal best!' : `Best: ${best}`;
-  setTimeout(() => $('overScreen').classList.remove('hidden'), 700);
+function starsHtml(n) { return [0, 1, 2].map(i => i < n ? '★' : '<span class="off">★</span>').join(''); }
+function renderLevels() {
+  $('levels').innerHTML = LEVELS.map((lv, i) => `
+    <div class="lv" tabindex="0" data-i="${i}">
+      <div class="n">Level ${i + 1}</div><div class="t">${lv.name}</div>
+      <div class="m">${lv.tag}</div><div class="s">${starsHtml(progress[i] || 0)}</div>
+    </div>`).join('');
+  for (const el of $('levels').querySelectorAll('.lv')) {
+    el.onclick = () => openLevel(+el.dataset.i);
+    el.onkeydown = ev => { if (ev.key === 'Enter') { ev.stopPropagation(); openLevel(+el.dataset.i); } };
+  }
 }
+function toLevels() { if (S) S.running = false; renderLevels(); newGame(2); S.running = false; show('startScreen'); }
+function openLevel(i) {
+  newGame(i); S.running = false;
+  $('introNum').textContent = `Level ${i + 1} of ${LEVELS.length}`;
+  $('introTitle').textContent = L.name;
+  $('introText').innerHTML = L.intro;
+  $('introGoal').innerHTML = `Goal: fill <b>${L.goal} orders</b>${L.sums ? `, at least <b>${L.sums} of them sums</b> from the adder` : ''}.<br>`
+    + `★ finish · ★ lose no gear (expired order, bomb) · ★ beat par time ${fmtTime(L.par)}`;
+  show('introScreen');
+}
+function begin() { S.running = true; show(null); beep(440, 0.1, 'triangle', 0.04); }
+function endLevel(won) {
+  S.running = false; S.won = won; hover = null;
+  const stars = won ? 1 + (S.gears === L.gears ? 1 : 0) + (S.time <= L.par ? 1 : 0) : 0;
+  if (won) { progress[L.idx] = Math.max(progress[L.idx] || 0, stars); saveProgress(); }
+  $('endTitle').textContent = won ? (L.idx === LEVELS.length - 1 ? 'Factory mastered!' : 'Level complete!') : 'Factory stopped';
+  $('endStars').innerHTML = starsHtml(stars);
+  $('endStats').innerHTML = won
+    ? `★ finished · ${S.gears === L.gears ? '★' : '☆'} no gear lost · ${S.time <= L.par ? '★' : '☆'} time ${fmtTime(S.time)} (par ${fmtTime(L.par)})<br><span class="muted">score ${S.score} · best combo x${S.bestCombo} · ${S.returned} sent back · ${S.jams} jams</span>`
+    : `${S.delivered}/${L.goal} orders${L.sums ? ` · ${S.sums}/${L.sums} sums` : ''} · score ${S.score}`;
+  $('endNext').style.display = won && L.idx < LEVELS.length - 1 ? '' : 'none';
+  setTimeout(() => show('endScreen'), 650);
+}
+$('introGo').onclick = begin;
+$('introBack').onclick = toLevels;
+$('endNext').onclick = () => openLevel(L.idx + 1);
+$('endRetry').onclick = () => openLevel(L.idx);
+$('endLevels').onclick = toLevels;
+$('pauseLevels').onclick = toLevels;
 
 // ---------- loop ----------
-newGame(); S.running = false; // idle scene behind the start screen
+toLevels();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -825,7 +1059,8 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // test hook (used by the automated checks; harmless in play)
-window.__zw = { get S() { return S; }, N, MAILS, ROUTE, STATION, edges, predict, analyze, through, fitsOrder, fitsAny, newGame, release, setRoute, update, speed };
+window.__zw = { get S() { return S; }, get N() { return N; }, get L() { return L; }, get MAILS() { return MAILS; }, get PRESET() { return PRESET; },
+  get edges() { return edges; }, LEVELS, newGame, openLevel, begin, release, setRoute, toggleGate, update, analyze, resultFor, currentPath, paths, simulate, flip };
 })();
 </script>
 </body>

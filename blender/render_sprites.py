@@ -233,8 +233,30 @@ def tile(name, top, edge):
     ground(-H)
     render(name, 0.9, 0.9, ink=edge, ink_px=4)
 
-for f in (station, switch, mailbox, recycler, factory):
+def adder():
+    """Merge machine: holds one tile in its tray until a second one arrives."""
+    reset()
+    H = 0.34
+    box(1.45, 1.05, H, (0, 0, -H / 2), mat('#a9c3be'), INK, bevel=0.12)
+    box(1.33, 0.93, 0.04, (0, 0, 0.01), mat(MINT_TOP), None, bevel=0.03)
+    # tray where the held tile rests
+    box(0.70, 0.62, 0.05, (0, 0, 0.02), mat('#2f4f4b', 0.8), None, bevel=0.03)
+    box(0.80, 0.72, 0.03, (0, 0, 0.012), mat('#9fb8b3'), None, bevel=0.015)
+    # two input funnels (top and bottom) and an output lip (right)
+    for y in (0.47, -0.47):
+        box(0.34, 0.16, 0.10, (0, y, 0.05), mat('#d6e2df'), None, bevel=0.03)
+    box(0.14, 0.34, 0.08, (0.68, 0, 0.04), mat('#d6e2df'), None, bevel=0.03)
+    # corner bolts
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cyl(0.035, 0.03, 0.04, mat('#8fb0aa'), None, verts=16, bevel=0.008, x=sx * 0.56, y=sy * 0.36)
+    ground(-H)
+    render('adder', 2.0, 2.0)
+
+for f in (station, switch, mailbox, recycler, factory, adder):
     f()
 tile('tile', '#eef6f3', '#2f6f68')
 tile('tile_scrap', '#f3d6d0', '#b65050')
+tile('tile_gold', '#f6d77a', '#a77b18')
+tile('tile_bomb', '#3b4442', '#1b2120')
 print('ALL DONE')
